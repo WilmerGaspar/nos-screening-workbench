@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+title: "NOS Screening Workbench"
+message: If you use this software, please cite it.
+type: software
+authors:
+  - family-names: Espinoza Castillo
+    given-names: Wilmer Gaspar
+    orcid: https://orcid.org/0009-0000-1388-9660
+license: CC-BY-NC-SA-4.0
+version: "0.2.0"
+date-released: "2026-09-20"
+abstract: >
+  Reproducible pre-filter for intermetallic coating candidates combining
+  a Natural Occurrence Score with process-aware manufacturability rules.
