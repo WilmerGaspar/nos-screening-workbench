@@ -1,15 +1,35 @@
-"""Published room-temperature kappa. Unknown phases are not assigned a fake value."""
+"""Published room-temperature bulk kappa. No invented numbers."""
 from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+# cite_ok rows only. CoAl / FeAl / Ni3Al wait for the figure.
 KAPPA_RT: Dict[str, Dict] = {
-    "NiAl": {"kappa": 92.2, "cte_ppm_k": 15.1, "citation": "Terada et al., Intermetallics 3 (1995) 347; Mater. Trans. 43 (2002) 3167.", "note": "B2 NiAl at stoichiometry."},
-    "CoAl": {"kappa": 37.0, "cte_ppm_k": 15.0, "citation": "Terada et al., Intermetallics 3 (1995) 347.", "note": "B2 CoAl."},
-    "FeAl": {"kappa": 12.0, "cte_ppm_k": 21.0, "citation": "Terada et al., Intermetallics 3 (1995) 347.", "note": "B2 FeAl. Not a heat-spreader."},
-    "Ni3Al": {"kappa": 28.5, "cte_ppm_k": 12.5, "citation": "Terada et al., Mater. Trans. 43 (2002) 3167.", "note": "L12 gamma prime."},
-    "Fe3Al": {"kappa": 11.0, "cte_ppm_k": 19.0, "citation": "Fe-Al series order-of-magnitude, Terada 1995/2002.", "note": "Approximate.", "approximate": True},
+    "NiAl": {
+        "kappa": 92.2, "T_K": 300, "method": "laser-flash",
+        "cte_ppm_k": 15.1, "form": "bulk",
+        "citation": "Terada 2002, Mater. Trans. 43:3167, DOI 10.2320/matertrans.43.3167",
+        "note": "B2 NiAl stoich. Maximum at stoichiometry.",
+    },
+    "FeTi": {
+        "kappa": 73.0, "T_K": 300, "method": "laser-flash",
+        "cte_ppm_k": None, "form": "bulk",
+        "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
+        "note": "Largest titanide in the 1995 series.",
+    },
+    "NiGa": {
+        "kappa": 23.0, "T_K": 300, "method": "laser-flash",
+        "cte_ppm_k": None, "form": "bulk",
+        "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
+        "note": "Largest gallide in the 1995 series. Backlog.",
+    },
+    "Ni3Ga": {
+        "kappa": 32.8, "T_K": 300, "method": "laser-flash",
+        "cte_ppm_k": None, "form": "bulk",
+        "citation": "Hanai 1996, Intermetallics 4:S41, DOI 10.1016/0966-9795(96)00004-0",
+        "note": "Abstract: 32.8 largest among six L12 A3B. Backlog.",
+    },
 }
 
 SUBSTRATES = {
@@ -71,12 +91,12 @@ def evaluate_thermal(formula: str, substrate: str = "Cu", application: str = "si
     sub = SUBSTRATES.get(substrate, SUBSTRATES["Cu"])
     rec = lookup(formula)
     if rec is None:
-        notes.append("No citable RT kappa. Do not invent a rule-of-mixtures value.")
+        notes.append("No citable RT kappa (DOI + T + method). Do not invent a number.")
         return ThermalResult(0.15, None, None, None, None, False, notes, "missing_thermal_data", False)
     kappa = float(rec["kappa"])
     cte = rec.get("cte_ppm_k")
-    approx = bool(rec.get("approximate"))
-    notes.append(f"k(RT) = {kappa:.1f} W/mK. {rec['citation']}")
+    notes.append(f"k = {kappa:.1f} W/mK (bulk, {rec.get('T_K', 300)} K, {rec.get('method', 'laser-flash')}). {rec['citation']}")
+    notes.append("k is bulk at ~300 K, not coating k and not TIM k.")
     s_k = kappa_score(kappa)
     dcte = None
     s_cte = 0.55
@@ -91,12 +111,13 @@ def evaluate_thermal(formula: str, substrate: str = "Cu", application: str = "si
     score = 0.70 * s_k + 0.30 * s_cte
     if not spreader_ok:
         score = min(score, 0.45)
-    if not spreader_ok:
         verdict = "not_a_heat_spreader"
-    elif approx:
-        verdict = "calphad_then_coupon"
     elif kappa >= 70 and (dcte is None or dcte <= 8):
         verdict = "proceed_to_coupon"
     else:
         verdict = "calphad_then_coupon"
-    return ThermalResult(round(max(0.0, min(1.0, score)), 4), kappa, cte, None if dcte is None else round(dcte, 2), rec["citation"], approx, notes, verdict, spreader_ok and kappa >= 40)
+    return ThermalResult(
+        round(max(0.0, min(1.0, score)), 4),
+        kappa, cte, None if dcte is None else round(dcte, 2),
+        rec["citation"], False, notes, verdict, spreader_ok and kappa >= 40,
+    )
