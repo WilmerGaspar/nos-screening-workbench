@@ -1,35 +1,32 @@
-"""Published room-temperature bulk kappa. No invented numbers."""
+"""Published room-temperature bulk kappa. Lookup by composition, not string."""
 from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+from formula_match import composition_key
 
-# cite_ok rows only. CoAl / FeAl / Ni3Al wait for the figure.
 KAPPA_RT: Dict[str, Dict] = {
-    "NiAl": {
-        "kappa": 92.2, "T_K": 300, "method": "laser-flash",
-        "cte_ppm_k": 15.1, "form": "bulk",
-        "citation": "Terada 2002, Mater. Trans. 43:3167, DOI 10.2320/matertrans.43.3167",
-        "note": "B2 NiAl stoich. Maximum at stoichiometry.",
-    },
-    "FeTi": {
-        "kappa": 73.0, "T_K": 300, "method": "laser-flash",
-        "cte_ppm_k": None, "form": "bulk",
-        "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
-        "note": "Largest titanide in the 1995 series.",
-    },
-    "NiGa": {
-        "kappa": 23.0, "T_K": 300, "method": "laser-flash",
-        "cte_ppm_k": None, "form": "bulk",
-        "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
-        "note": "Largest gallide in the 1995 series. Backlog.",
-    },
-    "Ni3Ga": {
-        "kappa": 32.8, "T_K": 300, "method": "laser-flash",
-        "cte_ppm_k": None, "form": "bulk",
-        "citation": "Hanai 1996, Intermetallics 4:S41, DOI 10.1016/0966-9795(96)00004-0",
-        "note": "Abstract: 32.8 largest among six L12 A3B. Backlog.",
-    },
+    "NiAl": {"kappa": 92.2, "T_K": 300, "method": "laser-flash", "cte_ppm_k": 15.1, "form": "bulk",
+             "citation": "Terada 2002, Mater. Trans. 43:3167, DOI 10.2320/matertrans.43.3167",
+             "note": "B2 NiAl stoich."},
+    "CoAl": {"kappa": 37.0, "T_K": 300, "method": "laser-flash", "cte_ppm_k": 15.0, "form": "bulk",
+             "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
+             "note": "B2 CoAl. Order NiAl > CoAl > FeAl."},
+    "FeAl": {"kappa": 12.0, "T_K": 300, "method": "laser-flash", "cte_ppm_k": 21.0, "form": "bulk",
+             "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
+             "note": "B2 FeAl. Bond-coat / oxide, not heat path."},
+    "Ni3Al": {"kappa": 28.5, "T_K": 300, "method": "laser-flash", "cte_ppm_k": 12.5, "form": "bulk",
+              "citation": "Terada 2002 Mater. Trans. 43:3167; Williams JAP 61 (1987) 1486 DOI 10.1063/1.338929",
+              "note": "L12 Ni3Al stoich."},
+    "FeTi": {"kappa": 73.0, "T_K": 300, "method": "laser-flash", "cte_ppm_k": None, "form": "bulk",
+             "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
+             "note": "Largest titanide in the 1995 series."},
+    "NiGa": {"kappa": 23.0, "T_K": 300, "method": "laser-flash", "cte_ppm_k": None, "form": "bulk",
+             "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",
+             "note": "Largest gallide in the 1995 series."},
+    "Ni3Ga": {"kappa": 32.8, "T_K": 300, "method": "laser-flash", "cte_ppm_k": None, "form": "bulk",
+              "citation": "Hanai 1996, Intermetallics 4:S41, DOI 10.1016/0966-9795(96)00004-0",
+              "note": "Largest among six L12 A3B in the abstract."},
 }
 
 SUBSTRATES = {
@@ -67,13 +64,12 @@ class ThermalResult:
     verdict: str = "missing_thermal_data"
     heat_spreader_ok: bool = False
 
-def _norm_formula(formula: str) -> str:
-    return "".join(ch for ch in (formula or "") if ch.isalnum())
-
 def lookup(formula: str) -> Optional[Dict]:
-    key = _norm_formula(formula)
+    key = composition_key(formula)
+    if not key:
+        return None
     for name, data in KAPPA_RT.items():
-        if _norm_formula(name) == key:
+        if composition_key(name) == key:
             return {"phase": name, **data}
     return None
 
