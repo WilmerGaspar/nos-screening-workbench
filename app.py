@@ -11,6 +11,8 @@ from nos_score import run_demo, run_live
 from ranking import COOLING_WEIGHTS, attach_ranks, pareto_front
 from die_stack import DIES, evaluate_stack
 from thermal import APPLICATIONS, SUBSTRATES, VERDICT_COPY, evaluate_thermal
+from demo_systems import DEMO_SYSTEMS
+from standards import STANDARDS
 
 ROOT = Path(__file__).resolve().parent
 LOGO = ROOT / "assets" / "logo.jpg"
@@ -43,9 +45,17 @@ def sidebar():
     spec = APPLICATIONS[app_key]
     cooling = app_key != "generic_coating"
     st.sidebar.caption(spec["blurb"])
-    default_alloy = "Ni, Al" if cooling else "Fe, Al"
-    alloy = st.sidebar.text_input("Sistema quimico", value=default_alloy)
+    default_sys = "Ni,Al" if cooling else "Fe,Al"
+    keys = [s["key"] for s in DEMO_SYSTEMS]
+    default_idx = keys.index(default_sys) if default_sys in keys else 0
+    sys_key = st.sidebar.selectbox(
+        "Sistema quimico",
+        keys,
+        index=default_idx,
+        format_func=lambda k: next(s["label"] for s in DEMO_SYSTEMS if s["key"] == k),
+    )
     exact = st.sidebar.toggle("Solo ese sistema (chemsys exacto)", value=True)
+    std_key = st.sidebar.selectbox("Norma de destino", list(STANDARDS.keys()), index=0 if cooling else 3, format_func=lambda k: STANDARDS[k]["label"])
     process_label = st.sidebar.selectbox("Proceso de deposito", list(PROCESS_OPTIONS.keys()))
     substrate = st.sidebar.selectbox("Sustrato", list(SUBSTRATES.keys()), index=list(SUBSTRATES.keys()).index(spec["default_substrate"]))
     temp = st.sidebar.slider("Temperatura de servicio / juntura (C)", 25, 800, int(spec["default_temp_c"]), 5)
@@ -68,25 +78,21 @@ def sidebar():
     source = st.sidebar.radio("Modo", ["Demo offline (reproducible)", "Materials Project (API)"], index=0 if not has_key else 1)
     max_results = st.sidebar.slider("Maximo de fases (API)", 20, 200, 80, 10)
     if source.startswith("Materials") and not has_key:
-        st.sidebar.warning("No hay MP_API_KEY (env o Streamlit Secrets). Se usara demo.")
+        st.sidebar.warning("No hay MP_API_KEY. Se usara demo.")
     run = st.sidebar.button("Ejecutar screening", type="primary", use_container_width=True)
-    cleaned = []
-    for e in alloy.split(","):
-        token = e.strip()
-        if token:
-            cleaned.append(token[0].upper() + token[1:].lower() if len(token) > 1 else token.upper())
+    cleaned = [e.strip() for e in sys_key.split(",") if e.strip()]
     return {
         "elements": cleaned, "exact": exact, "process": PROCESS_OPTIONS[process_label],
         "process_label": process_label, "temp": temp, "w_nos": w_nos, "w_thermal": w_thermal,
         "cooling": cooling, "application": app_key, "substrate": substrate, "die": die,
         "thickness_um": thickness_um, "area_cm2": area_cm2, "power_w": power_w,
         "t_sink_c": t_sink_c, "budget": budget, "live": source.startswith("Materials") and has_key,
-        "mp_key": mp_key, "max_results": max_results, "run": run,
+        "mp_key": mp_key, "max_results": max_results, "run": run, "standard": std_key,
     }
 
 def screen(cfg):
     if len(cfg["elements"]) < 2:
-        st.warning("Indica al menos dos elementos, por ejemplo Ni, Al.")
+        st.warning("Elige un sistema de la lista.")
         return None, None
     if cfg["live"]:
         try:
@@ -162,11 +168,19 @@ def detail(rows):
         for note in row.get(key) or []:
             st.write(f"- {note}")
 
+def standards_panel(std_key: str):
+    spec = STANDARDS[std_key]
+    st.subheader("Ensayos despues del pre-filtro")
+    st.caption(spec["blurb"] + "  ·  aplica a: " + spec["applies_to"])
+    st.dataframe(pd.DataFrame([{"Codigo": t["code"], "Ensayo": t["name"], "Que pega": t["hits"], "Fallo tipico": t["fail"]} for t in spec["tests"]]), use_container_width=True, hide_index=True)
+    st.info(spec["next_step"])
+
 def main():
     header()
     cfg = sidebar()
     if not cfg["run"]:
-        st.info("Elige mision y ejecuta. Demo offline no necesita API. Live MP usa MP_API_KEY.")
+        st.info("Elige un sistema de la lista y ejecuta. kappa es bulk a ~300 K, no TIM.")
+        standards_panel(cfg["standard"])
         return
     rows, mode = screen(cfg)
     if rows is None:
@@ -179,6 +193,7 @@ def main():
     table(rows, cfg["cooling"])
     st.subheader("Dictamen")
     detail(rows)
+    standards_panel(cfg["standard"])
     st.caption("(c) 2026 Wilmer Gaspar Espinoza Castillo · CC BY-NC-SA 4.0")
 
 if __name__ == "__main__":
