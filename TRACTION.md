@@ -29,10 +29,12 @@ Use Streamlit as the *demo*, not as the company.
 
 Script of the 3-minute demo:
 
-1. Mission = Si power module, Cu, Ni–Al, PVD, 20 µm, 50 W.
-2. Point to NiAl: κ = 92.2 W/m·K, R_coat ≈ 0.0022 K/W, verdict proceed_to_coupon.
-3. Switch to Fe–Al: not_a_heat_spreader.
-4. Say the sentence: “This is the pre-filter. The product is the coupon.”
+1. Mission = Si power module, Cu, 7 cited phases, PVD, 20 µm, 50 W, site = cold plate.
+2. Point to the dT split: NiAl ~0.11 K vs TIM ~6.25 K. κ is not the lever at 20 µm.
+3. Point to rank stability: NiAl first in ~92 % of weight sets.
+4. Switch site to die-attach: every metallic phase becomes coupon_high_cte_risk.
+5. Download the coupon request: two-stage test, decision rule.
+6. Say the sentence: “This picks what survives the interface. The product is the coupon.”
 
 ## Who to write (20 names, not 200)
 

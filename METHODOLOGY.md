@@ -1,4 +1,4 @@
-# Methodology — NOS Screening Workbench v0.2
+# Methodology — NOS Screening Workbench v0.3
 
 This document is the contract with the user. If a number appears in the UI, it is produced by one of the formulas below.
 
@@ -31,11 +31,41 @@ M = 0.35 P + 0.25 T + 0.20 F + 0.20 E
 
 Electroplating veto if plateable atomic fraction < 0.35. Combined score capped at 0.25 on veto. Pugh B/G < 1.75 flagged brittle.
 
-## 4. Chip-cooling layer
+## 4. Thermal relevance (v0.3; replaces the v0.2 cooling score)
 
-Published kappa only (Terada 1995/2002): NiAl 92.2, CoAl 37, Ni3Al 28.5, FeAl 12 W/m-K.
-Unknown phases: missing_thermal_data, score 0.15. No rule-of-mixtures.
+Bulk kappa (published only, Terada 1995/2002, Hanai 1996, Williams 1987) is an upper bound
+for a deposited film. It no longer enters the score.
 
-R_coat = t / (kappa A). Tj lower bound = T_sink + P * R_coat. Interface R is not invented.
+R''_coat = t / kappa,  R''_TIM = t_TIM / kappa_TIM  (K.m2/W, 1-D, no interface R invented)
 
-Cooling rank: C = 0.30 NOS + 0.30 M + 0.40 T_thermal
+share = R''_coat / (R''_coat + R''_TIM)   (independent of area)
+
+kappa_needed = t (1 - s_max) / (s_max R''_TIM)   (default s_max = 0.10)
+
+film_margin = 1 - kappa_needed / kappa_bulk   (how much of the bulk value the film may lose)
+
+TIM defaults (4 W/m.K, 50 um) are editable assumptions, not measurements.
+
+## 5. Interface
+
+The layer site lists the materials the coating touches (die, DBC Cu, baseplate, Al wire).
+dCTE_max = max |CTE_coat - CTE_neighbor|; interface score = clip(1 - dCTE_max / 16, 0, 1).
+Unknown CTE scores 0.5 and gets the verdict coupon_cte_unknown. CTE values carried in
+thermal.py have no DOI in this repo and are flagged `cte_uncited`.
+
+Chemistry watch items (practitioner input, unpublished, 2026-10): Ni/Fe next to Cu
+(interdiffusion zone), Al/Ti in the coating (interface oxide). They change the coupon
+sheet, not the score.
+
+## 6. Verdict and rank
+
+Priority: process_veto > kappa_significant (heat-path sites only) > coupon_cte_unknown >
+coupon_high_cte_risk (dCTE > 8 ppm/K) > proceed_to_coupon.
+
+Reliability rank (cooling applications): C = 0.25 NOS + 0.35 M + 0.40 I, weights editable.
+Rows are ordered by verdict tier, then C. Caps: kappa_significant 0.45, process_veto 0.25.
+Rank stability = share of 120 weight sets (each weight 0.10-0.80, step 0.05) in which a
+phase ranks first.
+
+The v0.2 kappa score (0.30 NOS + 0.30 M + 0.40 kappa) is kept in the data as
+kappa_score_v02 for comparison only.

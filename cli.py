@@ -9,11 +9,11 @@ import json
 import sys
 from pathlib import Path
 
-from manufacturability import evaluate
+from interface import DEFAULT_SHARE_MAX, DEFAULT_TIM_KAPPA, DEFAULT_TIM_UM
 from nos_score import run_demo, run_live
-from ranking import COOLING_WEIGHTS, attach_ranks
-from die_stack import evaluate_stack
-from thermal import evaluate_thermal
+from pipeline import evaluate_candidates
+from ranking import rank_stability
+from stack_sites import DEFAULT_SITE, SITES
 
 
 def parse_args():
@@ -31,6 +31,10 @@ def parse_args():
     p.add_argument("--area-cm2", type=float, default=1.0)
     p.add_argument("--power-w", type=float, default=50.0)
     p.add_argument("--t-sink", type=float, default=45.0)
+    p.add_argument("--site", default=DEFAULT_SITE, choices=list(SITES.keys()))
+    p.add_argument("--tim-kappa", type=float, default=DEFAULT_TIM_KAPPA, help="TIM k in W/mK (assumption)")
+    p.add_argument("--tim-um", type=float, default=DEFAULT_TIM_UM, help="TIM bond line in um (assumption)")
+    p.add_argument("--share-max", type=float, default=DEFAULT_SHARE_MAX, help="max coating share of dT, 0-1")
     p.add_argument("--out", default="", help="Optional CSV path")
     p.add_argument("--json", default="", help="Optional JSON path")
     return p.parse_args()
@@ -48,48 +52,33 @@ def main():
         source = "demo"
 
     cooling = args.application != "generic_coating"
-    rows = []
-    for c in cands:
-        m = evaluate(c, args.process, args.temp)
-        t = evaluate_thermal(c["formula"], args.substrate, args.application)
-        s = evaluate_stack(
-            c["formula"],
-            thickness_um=args.thickness_um,
-            area_cm2=args.area_cm2,
-            power_w=args.power_w,
-            t_sink_c=args.t_sink,
-            die=args.die,
-            substrate=args.substrate,
-        )
-        rows.append({
-            **c,
-            "manuf_score": m.score,
-            "manuf_risk": m.risk_level,
-            "veto": m.veto,
-            "kappa_score": t.score,
-            "kappa_wm_k": t.kappa_wm_k,
-            "thermal_verdict": t.verdict,
-            "r_coat": s.r_coat_k_per_w,
-            "dt_coat": s.dt_coat_k,
-            "tj_lower_bound": s.tj_lower_bound_c,
-            "stack_verdict": s.verdict,
-        })
-    w_th = COOLING_WEIGHTS["thermal"] if cooling else 0.0
-    w_nos = COOLING_WEIGHTS["nos"] if cooling else 0.55
-    ranked = attach_ranks(rows, w_nos=w_nos, w_thermal=w_th)
+    cfg = {
+        "process": args.process, "temp": args.temp, "application": args.application,
+        "substrate": args.substrate, "die": args.die, "site": args.site,
+        "thickness_um": args.thickness_um, "area_cm2": args.area_cm2, "power_w": args.power_w,
+        "t_sink_c": args.t_sink, "tim_kappa": args.tim_kappa, "tim_um": args.tim_um,
+        "share_max": args.share_max, "cooling": cooling,
+    }
+    ranked = evaluate_candidates(cands, cfg)
 
-    print(f"source={source} process={args.process} T={args.temp} app={args.application} n={len(ranked)}")
-    print(f"{'rank':<5}{'formula':<12}{'comb':<8}{'k':<8}{'Rcoat':<10}{'dT':<8}{'Tj_lo':<8}{'verdict'}")
+    print(f"source={source} process={args.process} T={args.temp} app={args.application} site={args.site} n={len(ranked)}")
+    if not ranked:
+        print("no phases for that system in this source")
+        return 1
+    print(f"{'rank':<5}{'formula':<10}{'score':<8}{'iface':<7}{'dCTE':<7}{'k':<7}{'k_need':<8}{'dTcoat':<8}{'dTtim':<7}{'verdict'}")
     for r in ranked[:15]:
         k = "-" if r.get("kappa_wm_k") is None else f"{r['kappa_wm_k']:.1f}"
-        rc = "-" if r.get("r_coat") is None else f"{r['r_coat']:.4f}"
+        dc = "-" if r.get("dcte_max") is None else f"{r['dcte_max']:.1f}"
         dt = "-" if r.get("dt_coat") is None else f"{r['dt_coat']:.2f}"
-        tj = "-" if r.get("tj_lower_bound") is None else f"{r['tj_lower_bound']:.1f}"
-        print(f"{r['rank']:<5}{r['formula']:<12}{r['combined']:<8.3f}{k:<8}{rc:<10}{dt:<8}{tj:<8}{r['thermal_verdict']}")
+        print(f"{r['rank']:<5}{r['formula']:<10}{r['combined']:<8.3f}{r['interface_score']:<7.2f}{dc:<7}{k:<7}{r['kappa_needed']:<8.1f}{dt:<8}{r['dt_tim']:<7.2f}{r['verdict']}")
+    if cooling:
+        top = rank_stability(ranked)[0]
+        print(f"rank stability: {top['formula']} first in {top['share_first']:.0%} of {top['of']} weight sets")
 
     if args.out:
         path = Path(args.out)
-        keys = ["rank", "formula", "combined", "NOS", "manuf_score", "manuf_risk", "tier", "e_above_hull", "material_id"]
+        keys = ["rank", "formula", "combined", "verdict", "NOS", "manuf_score", "interface_score", "dcte_max",
+                "kappa_wm_k", "kappa_needed", "coat_share", "dt_coat", "dt_tim", "manuf_risk", "tier", "e_above_hull", "material_id"]
         with path.open("w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=keys, extrasaction="ignore")
             w.writeheader()

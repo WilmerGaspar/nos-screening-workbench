@@ -12,6 +12,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from i18n import t, verdict_text
 from standards import STANDARDS
+from stack_sites import site_spec
 
 _DEJAVU = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 _DEJAVU_B = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
@@ -57,17 +58,19 @@ def build_pdf(lang, cfg, rows, mode):
         [t(lang,"substrate"), str(cfg.get("substrate",""))],
         [t(lang,"temp"), f"{cfg.get('temp')} C"],
         [t(lang,"thickness"), f"{cfg.get('thickness_um')} um"],
+        [t(lang,"site"), site_spec(cfg.get("site")).get("label", "")],
+        [t(lang,"tim_h"), f"{cfg.get('tim_um')} um @ {cfg.get('tim_kappa')} W/mK"],
         [t(lang,"standard"), STANDARDS.get(cfg.get("standard") or "", {}).get("label","")],
     ]
     ct = Table(cfg_rows, colWidths=[55*mm, 120*mm])
     ct.setStyle(TableStyle([("FONTNAME",(0,0),(-1,-1),_FONT),("FONTSIZE",(0,0),(-1,-1),8),("BACKGROUND",(0,0),(0,-1),colors.HexColor("#f3f4f6")),("GRID",(0,0),(-1,-1),0.3,colors.HexColor("#d1d5db"))]))
     story.append(ct)
     story.append(Paragraph(t(lang,"report_rank"), styles["h2"]))
-    data = [["Rank", t(lang,"col_formula"), "NOS", "Manuf", t(lang,"col_verdict"), "k", "R_coat"]]
+    data = [["Rank", t(lang,"col_formula"), "Score", "Manuf", t(lang,"col_dcte"), t(lang,"col_verdict"), "k bulk", t(lang,"col_kneed")]]
     for r in rows[:20]:
-        k = r.get("kappa_wm_k"); rc = r.get("r_coat")
-        data.append([str(r.get("rank")), r.get("formula",""), f"{r.get('NOS',0):.3f}", f"{r.get('manuf_score',0):.3f}", Paragraph(verdict_text(lang, r.get("thermal_verdict") or "missing_thermal_data"), styles["cell"]), "-" if k is None else f"{k:.1f}", "-" if rc is None else f"{rc:.4f}"])
-    rt = Table(data, colWidths=[12*mm, 22*mm, 16*mm, 16*mm, 70*mm, 18*mm, 22*mm])
+        k = r.get("kappa_wm_k"); dc = r.get("dcte_max"); kn = r.get("kappa_needed")
+        data.append([str(r.get("rank")), r.get("formula",""), f"{r.get('combined',0):.3f}", f"{r.get('manuf_score',0):.3f}", "-" if dc is None else f"{dc:.1f}", Paragraph(verdict_text(lang, r.get("verdict") or "coupon_cte_unknown"), styles["cell"]), "-" if k is None else f"{k:.1f}", "-" if kn is None else f"{kn:.1f}"])
+    rt = Table(data, colWidths=[11*mm, 18*mm, 14*mm, 14*mm, 16*mm, 72*mm, 15*mm, 18*mm])
     rt.setStyle(TableStyle([("FONTNAME",(0,0),(-1,0),_FONT_B),("FONTSIZE",(0,0),(-1,-1),7),("BACKGROUND",(0,0),(-1,0),colors.HexColor("#111827")),("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),0.3,colors.HexColor("#d1d5db")),("VALIGN",(0,0),(-1,-1),"TOP")]))
     story.append(rt)
     std_key = cfg.get("standard")

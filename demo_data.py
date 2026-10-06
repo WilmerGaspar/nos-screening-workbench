@@ -42,5 +42,6 @@ def load_demo(elements, exact_chemsys=True):
     token = ",".join(elements).replace(" ", "").lower()
     if token in {"cited7", "cited"}:
         return load_cited()
-    rows = [dict(r) for r in DEMO_CANDIDATES if matches_elements(r["composition"], elements, exact_chemsys)]
-    return rows if rows else [dict(r) for r in DEMO_CANDIDATES]
+    # v0.3: no match returns nothing. v0.2 returned the whole catalog here, which put
+    # unrelated phases (e.g. Al13Fe4 with no kappa) on the Pareto front of a Ni-Al run.
+    return [dict(r) for r in DEMO_CANDIDATES if matches_elements(r["composition"], elements, exact_chemsys)]
