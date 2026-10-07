@@ -20,6 +20,9 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from stack_sites import site_spec
 
+# Sites where the layer also touches the semiconductor die.
+DIE_SITES = ("die_attach", "chip_metallization")
+
 _DEJAVU = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 _DEJAVU_B = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 _FONT, _FONT_B = "Helvetica", "Helvetica-Bold"
@@ -93,12 +96,22 @@ def _kappa_line(row, cfg):
             f"kappa before that. Do not spend lab budget on film kappa first.")
 
 
+def _base_metal_line(site_key, cfg):
+    substrate = cfg.get("substrate", "Cu")
+    if site_key not in DIE_SITES:
+        return f"{substrate} - same as the layer's neighbor at this site"
+    die = cfg.get("die") or "Si"
+    metal = "Cu (DBC copper)" if site_key == "die_attach" else "Al (bond wire)"
+    return (f"Two sides: {metal} and the {die} die. A metal-only coupon does not test the die side: "
+            f"add {die} coupons (or real {die} dies) coated the same way.")
+
+
 def build_coupon_pdf(cfg, rows, phase=None, contact=None):
     _fonts()
     styles = _st()
     row = dict(phase or pick_phase(rows) or {})
     site_key = cfg.get("site") or "cold_plate"
-    site = site_spec(site_key)
+    site = site_spec(site_key, "en")
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm,
                             topMargin=12 * mm, bottomMargin=11 * mm, title="NOS coupon request",
@@ -135,7 +148,7 @@ def build_coupon_pdf(cfg, rows, phase=None, contact=None):
 
     story.append(Paragraph("B. Coupon (fill in)", styles["h2"]))
     story.append(_kv_table([
-        ("Base metal", f"{cfg.get('substrate', 'Cu')} - same as the layer's neighbor at this site"),
+        ("Base metal", _base_metal_line(site_key, cfg)),
         ("Size / finish", "____ x ____ x ____ mm ; surface prep / Ra: ________"),
         ("Coupons per stage", "stage 0: ____   stage 1: ____   stage 2: ____ (keep 1 uncoated reference)"),
         ("Coupons supplied by", "requester (machined to drawing) / lab - ________"),

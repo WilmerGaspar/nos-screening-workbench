@@ -58,7 +58,7 @@ def build_pdf(lang, cfg, rows, mode):
         [t(lang,"substrate"), str(cfg.get("substrate",""))],
         [t(lang,"temp"), f"{cfg.get('temp')} C"],
         [t(lang,"thickness"), f"{cfg.get('thickness_um')} um"],
-        [t(lang,"site"), site_spec(cfg.get("site")).get("label", "")],
+        [t(lang,"site"), site_spec(cfg.get("site"), lang).get("label", "")],
         [t(lang,"tim_h"), f"{cfg.get('tim_um')} um @ {cfg.get('tim_kappa')} W/mK"],
         [t(lang,"standard"), STANDARDS.get(cfg.get("standard") or "", {}).get("label","")],
     ]

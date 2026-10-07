@@ -60,10 +60,61 @@ TIM_REF = [
 ]
 
 
-def site_spec(site_key):
-    return SITES.get(site_key) or SITES[DEFAULT_SITE]
+# English text for the sidebar, notes and the English PDFs. SITES / TIM_REF above stay the
+# Spanish source; only label, aqg, fail and blurb are translated (neighbors and heat_path are shared).
+SITES_EN = {
+    "chip_metallization": {
+        "label": "Chip top-side metallization (bond pad)",
+        "fail": "dVCE(sat) / dVDS typ. +5%",
+        "blurb": "With sintered die-attach, fatigue of the wirebond and the pad metallization takes over (Scarpa et al., arXiv:2608.08363).",
+    },
+    "die_attach": {
+        "label": "Die-attach (chip -> DBC)",
+        "fail": "dVCE(sat) / dVDS typ. +5%",
+        "blurb": "Layer next to the die. Short power cycling. Not a TIM.",
+    },
+    "dbc_baseplate": {
+        "label": "DBC -> baseplate",
+        "fail": "dRth(j-c) typ. +20%",
+        "blurb": "Thick layer / substrate solder. Module Rth.",
+    },
+    "bond_coat": {
+        "label": "Bond-coat / oxidation (not the heat path)",
+        "aqg": "TC / TST + oxidation",
+        "blurb": "Protection, not a spreader. FeAl belongs here.",
+    },
+    "cold_plate": {
+        "label": "Cold plate / leadframe (Cu)",
+        "aqg": "IEC 60747-15 Rth per switch",
+        "fail": "outside Rth,max",
+        "blurb": "Layer on Cu. R = t/kA is one term, not the datasheet.",
+    },
+}
+
+TIM_REF_EN = [
+    {"name": "Thermal grease", "kappa": "3-8", "form": "TIM", "note": "Interface material; not a coating."},
+    {"name": "Gap pad / TIM pad", "kappa": "5-15", "form": "TIM", "note": "Compliant; not an intermetallic phase."},
+    {"name": "Solder attach", "kappa": "~50", "form": "metal", "note": "Classic die-attach."},
+    {"name": "NiAl bulk (Terada 2002)", "kappa": "92.2", "form": "bulk 300 K", "note": "Not a TIM. Not the k of a PVD layer."},
+    {"name": "Cu", "kappa": "401", "form": "metal", "note": "Cold plate / leadframe."},
+]
 
 
-def site_note(site_key):
-    spec = site_spec(site_key)
-    return f"Sitio: {spec['label']}. Ensayo: {spec['aqg']}. Fallo: {spec['fail']}. {spec['blurb']}"
+def site_spec(site_key, lang="es"):
+    """Site dict; for any language other than Spanish the text fields come from SITES_EN."""
+    key = site_key if site_key in SITES else DEFAULT_SITE
+    spec = SITES[key]
+    if lang == "es":
+        return spec
+    return {**spec, **SITES_EN.get(key, {})}
+
+
+def tim_ref(lang="es"):
+    return TIM_REF if lang == "es" else TIM_REF_EN
+
+
+def site_note(site_key, lang="es"):
+    spec = site_spec(site_key, lang)
+    if lang == "es":
+        return f"Sitio: {spec['label']}. Ensayo: {spec['aqg']}. Fallo: {spec['fail']}. {spec['blurb']}"
+    return f"Site: {spec['label']}. Test: {spec['aqg']}. Failure: {spec['fail']}. {spec['blurb']}"

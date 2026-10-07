@@ -16,7 +16,7 @@ from standards import STANDARDS
 from i18n import LANGS, t, verdict_text
 from report_pdf import build_pdf, build_zip_all_langs
 from coupon_pdf import build_coupon_pdf, pick_phase
-from stack_sites import DEFAULT_SITE, SITES, TIM_REF, site_note
+from stack_sites import DEFAULT_SITE, SITES, site_note, site_spec, tim_ref
 
 ROOT = Path(__file__).resolve().parent
 LOGO = ROOT / "assets" / "logo.jpg"
@@ -57,8 +57,8 @@ def sidebar():
     exact = st.sidebar.toggle(t(lang, "exact"), value=True)
     std_key = st.sidebar.selectbox(t(lang, "standard"), list(STANDARDS.keys()), index=0 if cooling else 3, format_func=lambda k: STANDARDS[k]["label"])
     site_keys = list(SITES.keys())
-    site_key = st.sidebar.selectbox(t(lang, "site"), site_keys, index=site_keys.index(DEFAULT_SITE), format_func=lambda k: SITES[k]["label"])
-    st.sidebar.caption(SITES[site_key]["blurb"])
+    site_key = st.sidebar.selectbox(t(lang, "site"), site_keys, index=site_keys.index(DEFAULT_SITE), format_func=lambda k: site_spec(k, lang)["label"])
+    st.sidebar.caption(site_spec(site_key, lang)["blurb"])
     process_label = st.sidebar.selectbox(t(lang, "process"), list(PROCESS_OPTIONS.keys()))
     substrate = st.sidebar.selectbox(t(lang, "substrate"), list(SUBSTRATES.keys()), index=list(SUBSTRATES.keys()).index(spec["default_substrate"]))
     temp = st.sidebar.slider(t(lang, "temp"), 25, 800, int(spec["default_temp_c"]), 5)
@@ -133,10 +133,10 @@ def scatter(rows, cooling, lang):
     fig.update_layout(height=440, xaxis=dict(range=[0,1], title=t(lang,"col_iface") if cooling else "NOS"), yaxis=dict(range=[0,1], title="Manuf"), template="plotly_white")
     st.plotly_chart(fig, width="stretch")
 
-def tim_panel(cfg):
-    st.subheader("Esto no es un TIM / This is not a TIM")
-    st.caption(site_note(cfg.get("site") or DEFAULT_SITE))
-    st.dataframe(pd.DataFrame(TIM_REF), width="stretch", hide_index=True)
+def tim_panel(cfg, lang):
+    st.subheader(t(lang, "tim_title"))
+    st.caption(site_note(cfg.get("site") or DEFAULT_SITE, lang))
+    st.dataframe(pd.DataFrame(tim_ref(lang)), width="stretch", hide_index=True)
 
 def _num(v, spec):
     return None if v is None else float(format(v, spec))
@@ -165,12 +165,13 @@ def table(rows, cooling, lang, cfg, mode):
 def request_panel(rows, cfg, lang):
     st.subheader(t(lang, "request_h"))
     phase = pick_phase(rows) or {}
-    subject = f"NOS study request - {phase.get('formula', '')} - {SITES.get(cfg.get('site'), {}).get('label', '')}"
+    site_en = site_spec(cfg.get("site"), "en")["label"]
+    subject = f"NOS study request - {phase.get('formula', '')} - {site_en}"
     body = "\n".join([
         "Hi Wilmer,", "",
         "I ran the NOS Screening Workbench and would like a study / coupon for my case.", "",
         f"Application: {APPLICATIONS[cfg['application']]['label']}",
-        f"Layer site: {SITES.get(cfg.get('site'), {}).get('label', '')}",
+        f"Layer site: {site_en}",
         f"Process: {cfg.get('process_label')} - {cfg.get('thickness_um')} um on {cfg.get('substrate')}",
         f"Service T: {cfg.get('temp')} C - TIM: {cfg.get('tim_um')} um at {cfg.get('tim_kappa')} W/mK",
         f"Top phase in my run: {phase.get('formula', '-')} ({phase.get('verdict', '-')})", "",
@@ -208,17 +209,17 @@ def standards_panel(std_key, lang):
 def main():
     cfg = sidebar(); lang = cfg.get("lang","es"); header(lang)
     if not cfg["run"]:
-        st.info(t(lang,"empty")); tim_panel(cfg); standards_panel(cfg["standard"], lang); return
+        st.info(t(lang,"empty")); tim_panel(cfg, lang); standards_panel(cfg["standard"], lang); return
     rows, mode = screen(cfg)
     if rows is None: return
-    st.success(f"{len(rows)} · {APPLICATIONS[cfg['application']]['label']} · {cfg['substrate']} · {SITES.get(cfg.get('site'),{}).get('label','')}")
+    st.success(f"{len(rows)} · {APPLICATIONS[cfg['application']]['label']} · {cfg['substrate']} · {site_spec(cfg.get('site'), lang)['label']}")
     metrics(rows, mode, cfg["cooling"], lang)
     if cfg["cooling"]: stability_panel(rows, lang)
     scatter(rows, cfg["cooling"], lang)
     st.subheader(t(lang,"ranking")); table(rows, cfg["cooling"], lang, cfg, mode)
     request_panel(rows, cfg, lang)
     st.subheader(t(lang,"verdict_h")); detail(rows, lang)
-    tim_panel(cfg)
+    tim_panel(cfg, lang)
     standards_panel(cfg["standard"], lang)
     st.caption(t(lang,"disclaimer") + "  ·  (c) 2026 Wilmer Gaspar Espinoza Castillo")
 
