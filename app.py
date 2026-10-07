@@ -86,7 +86,7 @@ def sidebar():
     mp_key = _mp_key(); has_key = bool(mp_key)
     source = st.sidebar.radio(t(lang, "mode"), [t(lang, "demo"), t(lang, "live")], index=0 if not has_key else 1)
     max_results = st.sidebar.slider(t(lang, "max_api"), 20, 200, 80, 10)
-    run = st.sidebar.button(t(lang, "run"), type="primary", use_container_width=True)
+    run = st.sidebar.button(t(lang, "run"), type="primary", width="stretch")
     cleaned = [e.strip() for e in sys_key.split(",") if e.strip()]
     return {"elements": cleaned, "exact": exact, "process": PROCESS_OPTIONS[process_label], "process_label": process_label, "temp": temp, "w_nos": w_nos, "weights": weights, "cooling": cooling, "application": app_key, "substrate": substrate, "die": die, "thickness_um": thickness_um, "area_cm2": area_cm2, "power_w": power_w, "t_sink_c": t_sink_c, "budget": 0.05, "tim_kappa": tim_kappa, "tim_um": tim_um, "share_max": share_pct / 100.0, "live": source == t(lang, "live") and has_key, "mp_key": mp_key, "max_results": max_results, "run": run, "standard": std_key, "lang": lang, "site": site_key}
 
@@ -131,12 +131,12 @@ def scatter(rows, cooling, lang):
         if not chunk: continue
         fig.add_trace(go.Scatter(x=[r[xkey] for r in chunk], y=[r["manuf_score"] for r in chunk], mode="markers", name=tier, marker=dict(size=[16 if r["pareto"] else 11 for r in chunk], color=color, symbol=["diamond" if r["pareto"] else "circle" for r in chunk]), text=[f"{r['formula']} · {r.get('verdict')}" for r in chunk], hoverinfo="text"))
     fig.update_layout(height=440, xaxis=dict(range=[0,1], title=t(lang,"col_iface") if cooling else "NOS"), yaxis=dict(range=[0,1], title="Manuf"), template="plotly_white")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 def tim_panel(cfg):
     st.subheader("Esto no es un TIM / This is not a TIM")
     st.caption(site_note(cfg.get("site") or DEFAULT_SITE))
-    st.dataframe(pd.DataFrame(TIM_REF), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(TIM_REF), width="stretch", hide_index=True)
 
 def _num(v, spec):
     return None if v is None else float(format(v, spec))
@@ -149,16 +149,16 @@ def table(rows, cooling, lang, cfg, mode):
         t(lang,"col_dtc"): _num(r.get("dt_coat"), ".2f"), t(lang,"col_dtt"): _num(r.get("dt_tim"), ".2f"),
         t(lang,"col_flags"): len(r.get("flags") or []),
     } for r in rows])
-    st.dataframe(df, use_container_width=True, hide_index=True, height=320)
+    st.dataframe(df, width="stretch", hide_index=True, height=320)
     buf = io.StringIO(); df.to_csv(buf, index=False)
     c1,c2,c3,c4 = st.columns(4)
-    with c1: st.download_button(t(lang,"csv"), data=buf.getvalue(), file_name=f"nos_ranking_{lang}.csv", mime="text/csv")
-    with c2: st.download_button(t(lang,"pdf"), data=build_pdf(lang, cfg, rows, mode), file_name=f"nos_report_{lang}.pdf", mime="application/pdf")
-    with c3: st.download_button(t(lang,"pdf_all"), data=build_zip_all_langs(cfg, rows, mode), file_name="nos_reports_es_en_fr_de.zip", mime="application/zip")
+    with c1: st.download_button(t(lang,"csv"), data=buf.getvalue(), file_name=f"nos_ranking_{lang}.csv", mime="text/csv", on_click="ignore")
+    with c2: st.download_button(t(lang,"pdf"), data=build_pdf(lang, cfg, rows, mode), file_name=f"nos_report_{lang}.pdf", mime="application/pdf", on_click="ignore")
+    with c3: st.download_button(t(lang,"pdf_all"), data=build_zip_all_langs(cfg, rows, mode), file_name="nos_reports_es_en_fr_de.zip", mime="application/zip", on_click="ignore")
     phase = pick_phase(rows)
     with c4:
         if phase:
-            st.download_button("Coupon request PDF", data=build_coupon_pdf(cfg, rows, phase=phase, contact=f"Wilmer Espinoza - {_contact()}"), file_name=f"nos_coupon_{phase.get('formula','phase')}.pdf", mime="application/pdf")
+            st.download_button(t(lang, "coupon_pdf"), data=build_coupon_pdf(cfg, rows, phase=phase, contact=f"Wilmer Espinoza - {_contact()}"), file_name=f"nos_coupon_{phase.get('formula','phase')}.pdf", mime="application/pdf", on_click="ignore")
         else:
             st.caption(verdict_text(lang, "process_veto"))
 
@@ -202,7 +202,7 @@ def standards_panel(std_key, lang):
     spec = STANDARDS[std_key]
     st.subheader(t(lang,"tests_h"))
     st.caption(spec["blurb"])
-    st.dataframe(pd.DataFrame(spec["tests"]), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(spec["tests"]), width="stretch", hide_index=True)
     st.info(spec["next_step"])
 
 def main():
