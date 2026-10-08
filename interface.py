@@ -18,6 +18,9 @@ Evidence tiers used here
 ------------------------
 - Arithmetic: R'' = t / kappa (1-D conduction). No interface resistance is invented.
 - Published: bulk kappa rows in thermal.KAPPA_RT (laser-flash, DOI).
+- Published (2026): Al-Cu intermetallics are harder than Al and Cu and are the mechanical weak
+  point of Al-Cu interfaces; defects cut interface k by about 30 % (Nazarahari et al.,
+  DOI 10.1002/adem.202501357). Used only for the al_cu_imc watch item and Al-Cu kappa rows.
 - Practitioner input (unpublished, collected 2026-10, materials engineers): interface
   stability and coating soundness decide before kappa; film kappa differs from bulk;
   Ni/Fe may diffuse into Cu; Al/Ti surface oxidation can affect interface stability.
@@ -51,6 +54,10 @@ FLAG_TEXT = {
     "cte_uncited": "Coating CTE has no DOI in this repo: verify the value before quoting it.",
     "cte_missing": "No CTE value for this phase: the interface verdict needs a coupon.",
     "die_cte_mismatch": "Coating touches a semiconductor die: metallic coatings sit far from the die CTE.",
+    "al_cu_imc": "Al and Cu meet at this interface: Al-Cu intermetallics can grow there. They are harder "
+                 "than Al and Cu (a mechanical weak point), and theta (Al2Cu) can turn into Al4Cu9 when Al "
+                 "runs short, reported at 175-250 C in Al-Cu wire bonds (Xu et al. 2011, cited in "
+                 "Nazarahari et al. 2026, DOI 10.1002/adem.202501357). Measure the IMC thickness at each checkpoint.",
 }
 
 VERDICTS = (
@@ -166,6 +173,8 @@ def chemistry_flags(composition: Dict[str, float], neighbor_materials: List[str]
         flags.append("al_ti_oxide")
     if any(m in DIES for m in neighbor_materials):
         flags.append("die_cte_mismatch")
+    if ("Al" in present and "Cu" in neighbor_materials) or ("Cu" in present and "Al" in neighbor_materials):
+        flags.append("al_cu_imc")
     return flags
 
 

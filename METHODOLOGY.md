@@ -36,6 +36,13 @@ Electroplating veto if plateable atomic fraction < 0.35. Combined score capped a
 Bulk kappa (published only, Terada 1995/2002, Hanai 1996, Williams 1987) is an upper bound
 for a deposited film. It no longer enters the score.
 
+Al-Cu intermetallics (v0.3.1): Al4Cu9 38.6, Al2Cu3 25.9, AlCu 73.4, Al2Cu 62.0 W/m.K, ambient
+temperature, k = alpha cp rho (xenon flash, DSC, Archimedes), cast and homogenized samples
+(Nazarahari et al., Adv. Eng. Mater. 2026, DOI 10.1002/adem.202501357, Table 3). The paper's
+zeta sample is two-phase and is not used. No CTE is reported, so these rows get
+coupon_cte_unknown. Thin films of the same phases differ (smaller grains, higher hardness,
+per the same paper), so these are bulk reference values, not film values.
+
 R''_coat = t / kappa,  R''_TIM = t_TIM / kappa_TIM  (K.m2/W, 1-D, no interface R invented)
 
 share = R''_coat / (R''_coat + R''_TIM)   (independent of area)
@@ -53,9 +60,12 @@ dCTE_max = max |CTE_coat - CTE_neighbor|; interface score = clip(1 - dCTE_max / 
 Unknown CTE scores 0.5 and gets the verdict coupon_cte_unknown. CTE values carried in
 thermal.py have no DOI in this repo and are flagged `cte_uncited`.
 
-Chemistry watch items (practitioner input, unpublished, 2026-10): Ni/Fe next to Cu
-(interdiffusion zone), Al/Ti in the coating (interface oxide). They change the coupon
-sheet, not the score.
+Chemistry watch items change the coupon sheet, not the score:
+- ni_fe_into_cu, al_ti_oxide: practitioner input (unpublished, 2026-10).
+- al_cu_imc (Al meets Cu at the site): Al-Cu IMCs are harder than Al and Cu and are the
+  mechanical weak point of the interface; theta (Al2Cu) can turn into Al4Cu9 under local Al
+  depletion, reported at 175-250 C in Al-Cu wire bonds (Xu et al., Acta Mater. 2011, as cited
+  by Nazarahari et al. 2026).
 
 ## 6. Verdict and rank
 

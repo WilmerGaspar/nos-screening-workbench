@@ -27,7 +27,35 @@ KAPPA_RT: Dict[str, Dict] = {
     "Ni3Ga": {"kappa": 32.8, "T_K": 300, "method": "laser-flash", "cte_ppm_k": None, "form": "bulk",
               "citation": "Hanai 1996, Intermetallics 4:S41, DOI 10.1016/0966-9795(96)00004-0",
               "note": "Largest among six L12 A3B in the abstract."},
+    # Al-Cu intermetallics that grow at Al/Cu interfaces (wire bonds, Al-bearing layers on Cu).
+    # Nazarahari et al., Adv. Eng. Mater. 2026, 28, e202501357, Table 3: k = alpha * cp * rho,
+    # alpha by xenon flash, cp by DSC, rho by Archimedes, at ambient temperature. Cast and
+    # homogenized 550 C / 48 h: bulk values, not thin-film values. The paper's zeta sample is
+    # two-phase (zeta1 + eta2) and is left out on purpose. No CTE is reported.
+    "Al4Cu9": {"kappa": 38.6, "T_K": None, "T_label": "ambient", "method": "xenon flash + DSC", "cte_ppm_k": None,
+               "form": "bulk (cast)",
+               "citation": "Nazarahari 2026, Adv. Eng. Mater. 28:e202501357, DOI 10.1002/adem.202501357",
+               "note": "gamma1, 30.8 at.% Al nominal. Cu-rich Al-Cu IMCs conduct less than the others."},
+    "Al2Cu3": {"kappa": 25.9, "T_K": None, "T_label": "ambient", "method": "xenon flash + DSC", "cte_ppm_k": None,
+               "form": "bulk (cast)",
+               "citation": "Nazarahari 2026, Adv. Eng. Mater. 28:e202501357, DOI 10.1002/adem.202501357",
+               "note": "delta, 40 at.% Al nominal. Lowest k of the five phases measured."},
+    "AlCu": {"kappa": 73.4, "T_K": None, "T_label": "ambient", "method": "xenon flash + DSC", "cte_ppm_k": None,
+             "form": "bulk (cast)",
+             "citation": "Nazarahari 2026, Adv. Eng. Mater. 28:e202501357, DOI 10.1002/adem.202501357",
+             "note": "eta2, 48.75 at.% Al nominal (51.3 measured); twins seen in the sample."},
+    "Al2Cu": {"kappa": 62.0, "T_K": None, "T_label": "ambient", "method": "xenon flash + DSC", "cte_ppm_k": None,
+              "form": "bulk (cast)",
+              "citation": "Nazarahari 2026, Adv. Eng. Mater. 28:e202501357, DOI 10.1002/adem.202501357",
+              "note": "theta, 66.7 at.% Al nominal; Al4Cu9 precipitates at grain boundaries (k +/- 3.2)."},
 }
+
+
+def temp_label(rec: Dict) -> str:
+    """'300 K' for rows with a stated temperature, 'ambient' when the source only says ambient."""
+    if rec.get("T_K") is not None:
+        return f"{rec['T_K']} K"
+    return str(rec.get("T_label") or "T not stated")
 
 SUBSTRATES = {
     "Cu": {"cte_ppm_k": 16.5, "kappa": 401.0, "role": "cold plate"},
@@ -91,7 +119,7 @@ def evaluate_thermal(formula: str, substrate: str = "Cu", application: str = "si
         return ThermalResult(0.15, None, None, None, None, False, notes, "missing_thermal_data", False)
     kappa = float(rec["kappa"])
     cte = rec.get("cte_ppm_k")
-    notes.append(f"k = {kappa:.1f} W/mK (bulk, {rec.get('T_K', 300)} K, {rec.get('method', 'laser-flash')}). {rec['citation']}")
+    notes.append(f"k = {kappa:.1f} W/mK ({rec.get('form', 'bulk')}, {temp_label(rec)}, {rec.get('method', 'laser-flash')}). {rec['citation']}")
     notes.append("k is bulk at ~300 K, not coating k and not TIM k.")
     s_k = kappa_score(kappa)
     dcte = None

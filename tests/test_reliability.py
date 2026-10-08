@@ -111,6 +111,34 @@ def test_reports_build_in_four_languages():
     assert len(build_zip_all_langs(cfg, rows, "demo")) > 1000
 
 
+def test_alcu_kappa_rows_are_cited_and_matched_by_composition():
+    from thermal import evaluate_thermal, lookup, temp_label
+    assert lookup("CuAl2")["kappa"] == 62.0 and lookup("Al2Cu")["phase"] == "Al2Cu"
+    assert lookup("Cu9Al4")["kappa"] == 38.6
+    for f in ("Al4Cu9", "Al2Cu3", "AlCu", "Al2Cu"):
+        rec = lookup(f)
+        assert "10.1002/adem.202501357" in rec["citation"] and rec["cte_ppm_k"] is None
+        assert temp_label(rec) == "ambient"
+    assert lookup("Al9Cu11") is None  # two-phase zeta sample left out on purpose
+    assert "ambient" in evaluate_thermal("AlCu").notes[0]
+    assert "300 K" in evaluate_thermal("NiAl").notes[0]
+
+
+def test_alcu_flag_only_where_al_meets_cu():
+    nial_cu = evaluate_interface("NiAl", {"Ni": 1, "Al": 1}, "cold_plate", substrate="Cu")
+    nial_ss = evaluate_interface("NiAl", {"Ni": 1, "Al": 1}, "cold_plate", substrate="316SS")
+    feti_cu = evaluate_interface("FeTi", {"Fe": 1, "Ti": 1}, "cold_plate", substrate="Cu")
+    cu_pad = evaluate_interface("Al2Cu", {"Al": 2, "Cu": 1}, "chip_metallization", die="Si", substrate="Cu")
+    assert "al_cu_imc" in nial_cu.flags and "al_cu_imc" not in nial_ss.flags
+    assert "al_cu_imc" not in feti_cu.flags and "al_cu_imc" in cu_pad.flags
+
+
+def test_demo_story_unchanged_by_alcu_data():
+    _, rows = _run("cold_plate")
+    assert [r["formula"] for r in rows][:3] == ["NiAl", "CoAl", "Ni3Al"]
+    assert rows[0]["combined"] == 0.8075
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in tests:
