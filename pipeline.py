@@ -13,6 +13,8 @@ from typing import Dict, List
 
 from die_stack import evaluate_stack
 from interface import (
+    alcu_imc_kappa_min,
+    imc_thickness_threshold_um,
     DEFAULT_SHARE_MAX,
     DEFAULT_TIM_KAPPA,
     DEFAULT_TIM_UM,
@@ -68,6 +70,16 @@ def evaluate_row(cand: Dict, cfg: Dict) -> Dict:
         die=c["die"], substrate=c["substrate"],
     )
     verdict = decide(manuf.veto, bool(site["heat_path"]), rel.verdict, iface)
+    flag_notes = [FLAG_TEXT[f] for f in iface.flags if f in FLAG_TEXT]
+    imc_t_max_um = None
+    if "al_cu_imc" in iface.flags:
+        phase, k_min = alcu_imc_kappa_min()
+        imc_t_max_um = round(imc_thickness_threshold_um(k_min, c["tim_kappa"], c["tim_um"], c["share_max"]), 1)
+        flag_notes.append(
+            f"Thermal side of Al-Cu IMC growth: even the lowest-k phase measured ({phase}, {k_min:g} W/mK) "
+            f"stays under {c['share_max']:.0%} of the IMC+TIM dT up to ~{imc_t_max_um:.0f} um. "
+            "Below that, IMC growth is a mechanical question (cracking, hardness), not a thermal one."
+        )
     return {
         **cand,
         "manuf_score": manuf.score,
@@ -82,7 +94,8 @@ def evaluate_row(cand: Dict, cfg: Dict) -> Dict:
         "neighbors": iface.neighbors,
         "interface_notes": iface.notes,
         "flags": iface.flags,
-        "flag_notes": [FLAG_TEXT[f] for f in iface.flags if f in FLAG_TEXT],
+        "flag_notes": flag_notes,
+        "imc_t_max_um": imc_t_max_um,
         # thermal relevance (v0.3)
         "heat_path": bool(site["heat_path"]),
         "kappa_wm_k": legacy.kappa_wm_k,

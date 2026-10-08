@@ -142,6 +142,29 @@ def thermal_relevance(
     )
 
 
+# Lowest measured k among the cited Al-Cu IMC rows (Al2Cu3, 25.9 W/mK; DOI 10.1002/adem.202501357).
+ALCU_DOI = "10.1002/adem.202501357"
+
+
+def alcu_imc_kappa_min() -> Tuple[str, float]:
+    from thermal import KAPPA_RT
+    rows = [(name, float(r["kappa"])) for name, r in KAPPA_RT.items() if ALCU_DOI in r.get("citation", "")]
+    return min(rows, key=lambda x: x[1])
+
+
+def imc_thickness_threshold_um(kappa_imc: float, tim_kappa: float = DEFAULT_TIM_KAPPA,
+                               tim_um: float = DEFAULT_TIM_UM, share_max: float = DEFAULT_SHARE_MAX) -> float:
+    """IMC thickness (um) at which an IMC layer alone takes `share_max` of the IMC+TIM dT.
+
+    share = R_imc / (R_imc + R_TIM) <= s  ->  t <= s / (1 - s) * R_TIM * kappa_imc
+    Area cancels. 1-D, no interface resistance invented.
+    """
+    if kappa_imc <= 0 or tim_kappa <= 0 or tim_um <= 0 or not 0.0 < share_max < 1.0:
+        raise ValueError("kappa, TIM values must be positive and share_max in (0, 1)")
+    r_tim = float(tim_um) * 1e-6 / float(tim_kappa)
+    return share_max / (1.0 - share_max) * r_tim * float(kappa_imc) * 1e6
+
+
 def site_neighbors(site_key: str, die: str = "Si", substrate: str = "Cu") -> List[Tuple[str, float]]:
     """(label, CTE ppm/K) of each material the coating touches at this site."""
     out: List[Tuple[str, float]] = []

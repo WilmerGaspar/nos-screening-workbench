@@ -66,6 +66,10 @@ Chemistry watch items change the coupon sheet, not the score:
   mechanical weak point of the interface; theta (Al2Cu) can turn into Al4Cu9 under local Al
   depletion, reported at 175-250 C in Al-Cu wire bonds (Xu et al., Acta Mater. 2011, as cited
   by Nazarahari et al. 2026).
+  When this item fires, the app also reports the IMC thickness at which an IMC layer alone
+  would take s_max of the IMC+TIM dT, using the lowest measured Al-Cu k (Al2Cu3, 25.9 W/m.K):
+  t_max = s_max / (1 - s_max) * R''_TIM * k_IMC. With the default TIM (50 um, 4 W/m.K) and
+  s_max = 10 %, t_max is about 36 um.
 
 ## 6. Verdict and rank
 

@@ -139,6 +139,19 @@ def test_demo_story_unchanged_by_alcu_data():
     assert rows[0]["combined"] == 0.8075
 
 
+def test_imc_thickness_threshold():
+    from interface import alcu_imc_kappa_min, imc_thickness_threshold_um
+    phase, k = alcu_imc_kappa_min()
+    assert phase == "Al2Cu3" and k == 25.9
+    t = imc_thickness_threshold_um(25.9, tim_kappa=4.0, tim_um=50, share_max=0.10)
+    assert 35.9 < t < 36.1
+    _, rows = _run("cold_plate")
+    nial = next(r for r in rows if r["formula"] == "NiAl")
+    feti = next(r for r in rows if r["formula"] == "FeTi")
+    assert nial["imc_t_max_um"] == 36.0 and any("Al-Cu IMC growth" in n for n in nial["flag_notes"])
+    assert feti["imc_t_max_um"] is None
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in tests:
