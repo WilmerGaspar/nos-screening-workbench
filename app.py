@@ -215,10 +215,22 @@ def standards_panel(std_key, lang):
 def _opt(label, lang, **kw):
     return st.number_input(label, value=None, placeholder=t(lang, "f_optional"), **kw)
 
+def _next_coupon_id(log):
+    ids = {r["coupon_id"] for r in log}
+    n = len(ids) + 1
+    while f"C-{n:02d}" in ids:
+        n += 1
+    return f"C-{n:02d}"
+
 def results_panel(cfg, lang, top_phase):
     st.subheader(t(lang, "log_h"))
     st.caption(t(lang, "log_caption"))
     log = st.session_state.setdefault("coupon_log", [])
+    # The ID field must move on after each add/undo/upload, or the next stage-0 entry would
+    # silently replace the previous coupon (results.add treats same ID + stage as a correction).
+    if st.session_state.pop("log_id_stale", False) or "lf_coupon_id" not in st.session_state:
+        st.session_state["lf_coupon_id"] = _next_coupon_id(log)
+    flash = st.session_state.pop("log_flash", None)
 
     up = st.file_uploader(t(lang, "log_upload"), type=["csv"], key="log_upload")
     if up is not None:
@@ -228,6 +240,7 @@ def results_panel(cfg, lang, top_phase):
             st.session_state["coupon_log"] = log = loaded
             st.session_state["log_upload_sig"] = sig
             st.session_state["log_upload_problems"] = problems
+            st.session_state["lf_coupon_id"] = _next_coupon_id(log)
         st.success(t(lang, "log_loaded").format(n=len(log)))
         problems = st.session_state.get("log_upload_problems") or []
         if problems:
@@ -237,7 +250,7 @@ def results_panel(cfg, lang, top_phase):
         st.markdown(f"**{t(lang, 'log_form_h')}**")
         c1, c2, c3 = st.columns(3)
         with c1:
-            coupon_id = st.text_input(t(lang, "f_coupon_id"), value=f"C-{len(log) + 1:02d}")
+            coupon_id = st.text_input(t(lang, "f_coupon_id"), key="lf_coupon_id")
             coating = st.text_input(t(lang, "f_coating"), value=(top_phase or {}).get("formula", ""))
             process = st.selectbox(t(lang, "f_process"), list(PROCESS_OPTIONS.keys()) + ["Arc / flame wire spray", "Other"],
                                    index=list(PROCESS_OPTIONS.keys()).index(cfg.get("process_label")) if cfg.get("process_label") in PROCESS_OPTIONS else 0)
@@ -270,8 +283,12 @@ def results_panel(cfg, lang, top_phase):
         if errors:
             st.error("\n".join(f"- {e}" for e in errors))
         else:
-            st.session_state["coupon_log"] = log = new_log
-            st.success(t(lang, "log_added").format(id=coupon_id, stage=stage, outcome=rlog.outcome(new_log[-1])))
+            st.session_state["coupon_log"] = new_log
+            st.session_state["log_id_stale"] = True
+            st.session_state["log_flash"] = t(lang, "log_added").format(id=coupon_id, stage=stage, outcome=rlog.outcome(new_log[-1]))
+            st.rerun()
+    if flash:
+        st.success(flash)
 
     if not log:
         st.info(t(lang, "log_empty"))
@@ -296,6 +313,7 @@ def results_panel(cfg, lang, top_phase):
     with d4:
         if st.button(t(lang, "log_undo")):
             st.session_state["coupon_log"] = log[:-1]
+            st.session_state["log_id_stale"] = True
             st.rerun()
 
 def screening_view(cfg, lang):
