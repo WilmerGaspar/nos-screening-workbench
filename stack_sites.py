@@ -9,52 +9,52 @@
 
 SITES = {
     "chip_metallization": {
-        "label": "Chip top-side metallization (bond pad)",
+        "label": "Metalización superior del chip (pad de bonding)",
         "aqg": "PCsec / QL-01",
-        "fail": "dVCE(sat) / dVDS tip. +5%",
+        "fail": "dVCE(sat) / dVDS típ. +5%",
         "heat_path": False,
         "neighbors": [("die", "die"), ("Al", "Al bond wire")],
-        "blurb": "Con die-attach sinterizado, la fatiga del wirebond y de la metalizacion del pad pasa a dominar (Scarpa et al., arXiv:2608.08363).",
+        "blurb": "Con die-attach sinterizado, la fatiga del wirebond y de la metalización del pad pasa a dominar (Scarpa et al., arXiv:2608.08363).",
     },
     "die_attach": {
         "label": "Die-attach (chip -> DBC)",
         "aqg": "PCsec / QL-01",
-        "fail": "dVCE(sat) / dVDS tip. +5%",
+        "fail": "dVCE(sat) / dVDS típ. +5%",
         "heat_path": True,
         "neighbors": [("die", "die"), ("Cu", "Cu (DBC copper)")],
-        "blurb": "Capa junto al die. Power cycling corto. No es un TIM.",
+        "blurb": "Capa junto al die. Ciclado de potencia corto. No es un TIM.",
     },
     "dbc_baseplate": {
         "label": "DBC -> baseplate",
         "aqg": "PCmin / QL-02",
-        "fail": "dRth(j-c) tip. +20%",
+        "fail": "dRth(j-c) típ. +20%",
         "heat_path": True,
         "neighbors": [("Cu", "Cu (DBC copper)"), ("substrate", "baseplate")],
-        "blurb": "Capa gruesa / soldadura del sustrato. Rth del modulo.",
+        "blurb": "Capa gruesa / soldadura del sustrato. Rth del módulo.",
     },
     "bond_coat": {
-        "label": "Bond-coat / oxidacion (no camino de calor)",
-        "aqg": "TC / TST + oxidacion",
+        "label": "Bond-coat / oxidación (fuera del camino de calor)",
+        "aqg": "TC / TST + oxidación",
         "fail": "delam",
         "heat_path": False,
         "neighbors": [("substrate", "substrate")],
-        "blurb": "Proteccion, no spreader. FeAl vive aqui.",
+        "blurb": "Protección, no disipador. FeAl va aquí.",
     },
     "cold_plate": {
         "label": "Cold plate / leadframe (Cu)",
-        "aqg": "IEC 60747-15 Rth por switch",
+        "aqg": "IEC 60747-15, Rth por interruptor",
         "fail": "fuera de Rth,max",
         "heat_path": True,
         "neighbors": [("substrate", "substrate")],
-        "blurb": "Capa sobre Cu. R = t/kA es un termino, no el datasheet.",
+        "blurb": "Capa sobre Cu. R = t/kA es un término, no la hoja de datos.",
     },
 }
 DEFAULT_SITE = "cold_plate"
 
 TIM_REF = [
-    {"name": "Thermal grease", "kappa": "3-8", "form": "TIM", "note": "Interfaz; no recubrimiento."},
-    {"name": "Gap pad / TIM pad", "kappa": "5-15", "form": "TIM", "note": "Compliable; no fase intermetalica."},
-    {"name": "Solder attach", "kappa": "~50", "form": "metal", "note": "Die-attach clasico."},
+    {"name": "Grasa térmica", "kappa": "3-8", "form": "TIM", "note": "Material de interfaz; no es un recubrimiento."},
+    {"name": "Gap pad / pad térmico", "kappa": "5-15", "form": "TIM", "note": "Flexible; no es una fase intermetálica."},
+    {"name": "Soldadura (attach)", "kappa": "~50", "form": "metal", "note": "Die-attach clásico."},
     {"name": "NiAl bulk (Terada 2002)", "kappa": "92.2", "form": "bulk 300 K", "note": "No es TIM. No es k de capa PVD."},
     {"name": "Cu", "kappa": "401", "form": "metal", "note": "Cold plate / leadframe."},
 ]

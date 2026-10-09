@@ -18,14 +18,19 @@ from report_pdf import build_pdf, build_zip_all_langs
 from coupon_pdf import build_coupon_pdf, pick_phase
 from stack_sites import DEFAULT_SITE, SITES, site_note, site_spec, tim_ref
 import results as rlog
+import ui_text as ui
 
 ROOT = Path(__file__).resolve().parent
 LOGO = ROOT / "assets" / "logo.jpg"
-VERSION = "v0.4"
+VERSION = "v0.5"
 st.set_page_config(page_title="NOS Screening Workbench", page_icon="◆", layout="wide")
 PROCESS_OPTIONS = {"PVD (sputter / arc)": "pvd", "Thermal spray / HVOF": "thermal_spray", "Electroplating": "electroplating"}
 TIER_COLORS = {"Experimentally verified": "#0f766e", "Partially backed": "#ca8a04", "Well-calculated (DFT)": "#1d4ed8", "Exploratory": "#6b7280"}
 DEFAULT_CONTACT = "wilmergasparespinoza@gmail.com"
+# Display only: the verdict codes themselves (and the CSV) are unchanged.
+VERDICT_COLOR = {"proceed_to_coupon": "green", "coupon_high_cte_risk": "orange", "coupon_cte_unknown": "orange",
+                 "kappa_significant": "red", "process_veto": "red"}
+VERDICT_DOT = {"green": "🟢", "orange": "🟠", "red": "🔴"}
 
 def _secret(name, default=""):
     val = os.environ.get(name, "")
@@ -39,62 +44,100 @@ def _mp_key():
 def _contact():
     return _secret("NOS_CONTACT_EMAIL", DEFAULT_CONTACT) or DEFAULT_CONTACT
 
+def verdict_label(lang, code, dot=False):
+    code = code or "coupon_cte_unknown"
+    label = t(lang, f"vl_{code}")
+    return f"{VERDICT_DOT[VERDICT_COLOR.get(code, 'orange')]} {label}" if dot else label
+
 def header(lang):
     c1, c2 = st.columns([1, 8])
     with c1:
         if LOGO.exists(): st.image(str(LOGO), width=72)
     with c2:
-        st.title(t(lang, "title")); st.caption(t(lang, "subtitle") + f"  ·  {VERSION}")
+        st.title(t(lang, "title"))
+        st.markdown(f"#### {t(lang, 'welcome')}")
+        st.caption(t(lang, "subtitle") + f"  ·  {VERSION}")
+    cols = st.columns(3)
+    for col, n in zip(cols, (1, 2, 3)):
+        with col, st.container(border=True):
+            st.markdown(f"**{t(lang, f'step{n}_t')}**")
+            st.caption(t(lang, f"step{n}_d"))
 
 def sidebar():
-    lang = st.sidebar.selectbox("Language / Idioma", list(LANGS.keys()), format_func=lambda k: LANGS[k], index=0)
-    st.sidebar.header(t(lang, "mission"))
-    app_key = st.sidebar.selectbox(t(lang, "application"), list(APPLICATIONS.keys()), format_func=lambda k: APPLICATIONS[k]["label"], index=1)
+    sb = st.sidebar
+    lang = sb.selectbox("Language / Idioma", list(LANGS.keys()), format_func=lambda k: LANGS[k], index=0)
+    sb.header(t(lang, "mission"))
+    app_key = sb.selectbox(t(lang, "application"), list(APPLICATIONS.keys()), format_func=lambda k: ui.app_label(lang, k), index=1)
     spec = APPLICATIONS[app_key]; cooling = app_key != "generic_coating"
-    st.sidebar.caption(spec["blurb"])
+    sb.caption(ui.app_blurb(lang, app_key))
+    site_keys = list(SITES.keys())
+    site_key = sb.selectbox(t(lang, "site"), site_keys, index=site_keys.index(DEFAULT_SITE), format_func=lambda k: site_spec(k, lang)["label"], help=t(lang, "h_site"))
+    sb.caption(site_spec(site_key, lang)["blurb"])
     keys = [s["key"] for s in DEMO_SYSTEMS]
     default_idx = keys.index("cited7") if "cited7" in keys else 0
-    sys_key = st.sidebar.selectbox(t(lang, "system"), keys, index=default_idx, format_func=lambda k: next(s["label"] for s in DEMO_SYSTEMS if s["key"] == k))
-    exact = st.sidebar.toggle(t(lang, "exact"), value=True)
-    std_key = st.sidebar.selectbox(t(lang, "standard"), list(STANDARDS.keys()), index=0 if cooling else 3, format_func=lambda k: STANDARDS[k]["label"])
-    site_keys = list(SITES.keys())
-    site_key = st.sidebar.selectbox(t(lang, "site"), site_keys, index=site_keys.index(DEFAULT_SITE), format_func=lambda k: site_spec(k, lang)["label"])
-    st.sidebar.caption(site_spec(site_key, lang)["blurb"])
-    process_label = st.sidebar.selectbox(t(lang, "process"), list(PROCESS_OPTIONS.keys()))
-    substrate = st.sidebar.selectbox(t(lang, "substrate"), list(SUBSTRATES.keys()), index=list(SUBSTRATES.keys()).index(spec["default_substrate"]))
-    temp = st.sidebar.slider(t(lang, "temp"), 25, 800, int(spec["default_temp_c"]), 5)
-    die = st.sidebar.selectbox(t(lang, "die"), list(DIES.keys()), index=0)
-    thickness_um = st.sidebar.slider(t(lang, "thickness"), 1, 200, 20, 1)
-    area_cm2 = st.sidebar.number_input(t(lang, "area"), min_value=0.01, max_value=100.0, value=1.0, step=0.1)
-    power_w = st.sidebar.number_input(t(lang, "power"), min_value=1.0, max_value=500.0, value=50.0, step=1.0)
-    t_sink_c = st.sidebar.number_input(t(lang, "sink"), min_value=0.0, max_value=120.0, value=45.0, step=1.0)
-    with st.sidebar.expander(t(lang, "tim_h"), expanded=False):
-        st.caption(t(lang, "tim_caption"))
-        tim_kappa = st.number_input(t(lang, "tim_kappa"), min_value=0.5, max_value=50.0, value=float(DEFAULT_TIM_KAPPA), step=0.5)
-        tim_um = st.number_input(t(lang, "tim_um"), min_value=1.0, max_value=500.0, value=float(DEFAULT_TIM_UM), step=5.0)
-        share_pct = st.slider(t(lang, "share_max"), 2, 50, int(round(DEFAULT_SHARE_MAX * 100)), 1)
+    sys_key = sb.selectbox(t(lang, "system"), keys, index=default_idx, format_func=lambda k: ui.system_label(lang, k), help=t(lang, "h_system"))
+    process_label = sb.selectbox(t(lang, "process"), list(PROCESS_OPTIONS.keys()), format_func=lambda k: ui.process_label(lang, k))
+    substrate = sb.selectbox(t(lang, "substrate"), list(SUBSTRATES.keys()), index=list(SUBSTRATES.keys()).index(spec["default_substrate"]))
+    thickness_um = sb.slider(t(lang, "thickness"), 1, 200, 20, 1, help=t(lang, "h_thickness"))
+
     weights = dict(RELIABILITY_WEIGHTS); w_nos = 0.55
-    if cooling:
-        with st.sidebar.expander(t(lang, "weights_h"), expanded=False):
+    mp_key = _mp_key(); has_key = bool(mp_key)
+    with sb.expander(t(lang, "adv_h"), expanded=False):
+        st.caption(t(lang, "adv_caption"))
+        st.markdown(f"**{t(lang, 'adv_stack')}**")
+        die = st.selectbox(t(lang, "die"), list(DIES.keys()), index=0)
+        temp = st.slider(t(lang, "temp"), 25, 800, int(spec["default_temp_c"]), 5)
+        area_cm2 = st.number_input(t(lang, "area"), min_value=0.01, max_value=100.0, value=1.0, step=0.1)
+        power_w = st.number_input(t(lang, "power"), min_value=1.0, max_value=500.0, value=50.0, step=1.0)
+        t_sink_c = st.number_input(t(lang, "sink"), min_value=0.0, max_value=120.0, value=45.0, step=1.0)
+        st.divider()
+        st.markdown(f"**{t(lang, 'tim_h')}**", help=t(lang, "h_tim"))
+        st.caption(t(lang, "tim_caption"))
+        tim_kappa = st.number_input(t(lang, "tim_kappa"), min_value=0.5, max_value=50.0, value=float(DEFAULT_TIM_KAPPA), step=0.5, help=t(lang, "h_kappa"))
+        tim_um = st.number_input(t(lang, "tim_um"), min_value=1.0, max_value=500.0, value=float(DEFAULT_TIM_UM), step=5.0, help=t(lang, "h_tim"))
+        share_pct = st.slider(t(lang, "share_max"), 2, 50, int(round(DEFAULT_SHARE_MAX * 100)), 1)
+        st.divider()
+        if cooling:
+            st.markdown(f"**{t(lang, 'weights_h')}**")
             wn = st.slider(t(lang, "w_nos"), 0, 100, int(RELIABILITY_WEIGHTS["nos"] * 100), 5)
             wm = st.slider(t(lang, "w_manuf"), 0, 100, int(RELIABILITY_WEIGHTS["manuf"] * 100), 5)
-            wi = st.slider(t(lang, "w_iface"), 0, 100, int(RELIABILITY_WEIGHTS["interface"] * 100), 5)
+            wi = st.slider(t(lang, "w_iface"), 0, 100, int(RELIABILITY_WEIGHTS["interface"] * 100), 5, help=t(lang, "h_cte"))
             weights = normalize_weights({"nos": wn, "manuf": wm, "interface": wi})
             st.caption(" / ".join(f"{k} {v:.0%}" for k, v in weights.items()))
-    else:
-        w_nos = st.sidebar.slider("NOS", 0.30, 0.80, 0.55, 0.05)
-    st.sidebar.divider(); st.sidebar.subheader(t(lang, "source"))
-    mp_key = _mp_key(); has_key = bool(mp_key)
-    source = st.sidebar.radio(t(lang, "mode"), [t(lang, "demo"), t(lang, "live")], index=0 if not has_key else 1)
-    max_results = st.sidebar.slider(t(lang, "max_api"), 20, 200, 80, 10)
-    run = st.sidebar.button(t(lang, "run"), type="primary", width="stretch")
+        else:
+            w_nos = st.slider("NOS", 0.30, 0.80, 0.55, 0.05)
+        st.divider()
+        st.markdown(f"**{t(lang, 'adv_data')}**")
+        std_key = st.selectbox(t(lang, "standard"), list(STANDARDS.keys()), index=0 if cooling else 3, format_func=lambda k: ui.standard(lang, k)["label"])
+        source = st.radio(t(lang, "source"), [t(lang, "demo"), t(lang, "live")], index=0 if not has_key else 1)
+        exact = st.toggle(t(lang, "exact"), value=True)
+        max_results = st.slider(t(lang, "max_api"), 20, 200, 80, 10)
+    live = source == t(lang, "live") and has_key
+    # The demo runs by itself; the button is only needed to query Materials Project.
+    run = sb.button(t(lang, "run"), type="primary", width="stretch") if live else False
     cleaned = [e.strip() for e in sys_key.split(",") if e.strip()]
-    return {"elements": cleaned, "exact": exact, "process": PROCESS_OPTIONS[process_label], "process_label": process_label, "temp": temp, "w_nos": w_nos, "weights": weights, "cooling": cooling, "application": app_key, "substrate": substrate, "die": die, "thickness_um": thickness_um, "area_cm2": area_cm2, "power_w": power_w, "t_sink_c": t_sink_c, "budget": 0.05, "tim_kappa": tim_kappa, "tim_um": tim_um, "share_max": share_pct / 100.0, "live": source == t(lang, "live") and has_key, "mp_key": mp_key, "max_results": max_results, "run": run, "standard": std_key, "lang": lang, "site": site_key}
+    return {"elements": cleaned, "exact": exact, "process": PROCESS_OPTIONS[process_label], "process_label": process_label, "temp": temp, "w_nos": w_nos, "weights": weights, "cooling": cooling, "application": app_key, "substrate": substrate, "die": die, "thickness_um": thickness_um, "area_cm2": area_cm2, "power_w": power_w, "t_sink_c": t_sink_c, "budget": 0.05, "tim_kappa": tim_kappa, "tim_um": tim_um, "share_max": share_pct / 100.0, "live": live, "mp_key": mp_key, "max_results": max_results, "run": run, "standard": std_key, "lang": lang, "site": site_key}
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _cached_live(elements, exact, max_results, _api_key):
     # One Materials Project query per (system, exact, max) per hour; the key is not hashed.
     return run_live(list(elements), api_key=_api_key, max_results=max_results, exact_chemsys=exact)
+
+# Downloads are built once per (language, setup, results) instead of on every click.
+@st.cache_data(show_spinner=False, max_entries=64)
+def _report_pdf(lang, cfg, rows, mode):
+    return build_pdf(lang, cfg, rows, mode)
+
+@st.cache_data(show_spinner=False, max_entries=32)
+def _report_zip(cfg, rows, mode):
+    return build_zip_all_langs(cfg, rows, mode)
+
+@st.cache_data(show_spinner=False, max_entries=64)
+def _coupon_pdf(cfg, rows, contact):
+    return build_coupon_pdf(cfg, rows, phase=pick_phase(rows), contact=contact)
+
+def _pdf_cfg(cfg):
+    return {k: v for k, v in cfg.items() if k not in ("run", "mp_key")}
 
 def screen(cfg):
     lang = cfg.get("lang", "en")
@@ -116,18 +159,63 @@ def metrics(rows, mode, cooling, lang):
     a,b,c,d = st.columns(4)
     a.metric(t(lang,"candidates"), len(rows)); b.metric(t(lang,"pareto"), sum(1 for r in rows if r["pareto"]))
     if cooling:
-        c.metric(t(lang,"kappa_ok"), sum(1 for r in rows if r.get("relevance_verdict") == "kappa_not_limiting"))
-        d.metric(t(lang,"coupon"), sum(1 for r in rows if r.get("verdict") == "proceed_to_coupon"))
+        c.metric(t(lang,"kappa_ok"), sum(1 for r in rows if r.get("relevance_verdict") == "kappa_not_limiting"), help=t(lang, "h_kappa"))
+        d.metric(t(lang,"coupon"), sum(1 for r in rows if r.get("verdict") == "proceed_to_coupon"), help=t(lang, "h_coupon"))
     else:
         c.metric("risk", sum(1 for r in rows if r["manuf_risk"] in ("low","medium")))
         d.metric(t(lang,"source"), "Demo" if mode.startswith("demo") else "MP")
 
-def stability_panel(rows, lang):
+def stability_line(rows, lang):
     viable = [r for r in rows if r.get("verdict") != "process_veto"]
     stab = rank_stability(viable)
-    if not stab: return
+    if not stab: return None
     top = stab[0]
-    st.info(f"**{t(lang,'stability')}:** " + t(lang, "stability_line").format(f=top["formula"], p=top["share_first"], n=top["of"]))
+    return f"**{t(lang,'stability')}:** " + t(lang, "stability_line").format(f=top["formula"], p=top["share_first"], n=top["of"])
+
+def coupon_button(cfg, rows, lang, key):
+    if not pick_phase(rows):
+        st.caption(verdict_text(lang, "process_veto")); return
+    phase = pick_phase(rows)
+    st.download_button(t(lang, "coupon_pdf"), data=_coupon_pdf(_pdf_cfg(cfg), rows, f"Wilmer Espinoza - {_contact()}"),
+                       file_name=f"nos_coupon_{phase.get('formula','phase')}.pdf", mime="application/pdf",
+                       on_click="ignore", key=key, help=t(lang, "h_coupon"), width="stretch")
+
+def recommendation_card(rows, cfg, lang, mode):
+    phase = pick_phase(rows)
+    with st.container(border=True, key="rec_card"):
+        st.caption(t(lang, "rec_h").upper())
+        if not phase:
+            st.warning(t(lang, "rec_none"))
+        else:
+            left, right = st.columns([3, 2], gap="large")
+            with left:
+                st.markdown(f"## {phase['formula']}")
+                code = phase.get("verdict") or "coupon_cte_unknown"
+                st.badge(verdict_label(lang, code), color=VERDICT_COLOR.get(code, "orange"))
+                st.markdown(verdict_text(lang, code))
+                reasons = []
+                if phase.get("dt_coat") is not None:
+                    reasons.append(t(lang, "rec_dt").format(dc=phase["dt_coat"], dt=phase["dt_tim"]))
+                else:
+                    reasons.append(t(lang, "rec_dt_none").format(dt=phase["dt_tim"]))
+                if phase.get("dcte_max") is not None:
+                    reasons.append(t(lang, "rec_dcte").format(d=phase["dcte_max"], n=ui.neighbor(lang, phase.get("worst_neighbor"))))
+                else:
+                    reasons.append(t(lang, "rec_dcte_none"))
+                n_flags = len(phase.get("flags") or [])
+                reasons.append(t(lang, "rec_flags").format(n=n_flags) if n_flags else t(lang, "rec_flags_none"))
+                st.markdown("\n".join(f"- {r}" for r in reasons))
+            with right:
+                coupon_button(cfg, rows, lang, key="dl_coupon_card")
+                with st.popover(t(lang, "request_btn"), width="stretch"):
+                    request_panel(rows, cfg, lang)
+        if cfg["cooling"]:
+            line = stability_line(rows, lang)
+            if line: st.info(line)
+        src = "Demo" if mode.startswith("demo") else "Materials Project"
+        st.caption(t(lang, "rec_context").format(n=len(rows), app=ui.app_label(lang, cfg["application"]), sub=cfg["substrate"],
+                                                   site=site_spec(cfg.get("site"), lang)["label"], src=src))
+    metrics(rows, mode, cfg["cooling"], lang)
 
 def scatter(rows, cooling, lang):
     fig = go.Figure()
@@ -135,49 +223,86 @@ def scatter(rows, cooling, lang):
     for tier, color in TIER_COLORS.items():
         chunk = [r for r in rows if r["tier"] == tier]
         if not chunk: continue
-        fig.add_trace(go.Scatter(x=[r[xkey] for r in chunk], y=[r["manuf_score"] for r in chunk], mode="markers", name=tier, marker=dict(size=[16 if r["pareto"] else 11 for r in chunk], color=color, symbol=["diamond" if r["pareto"] else "circle" for r in chunk]), text=[f"{r['formula']} · {r.get('verdict')}" for r in chunk], hoverinfo="text"))
-    fig.update_layout(height=440, xaxis=dict(range=[0,1], title=t(lang,"col_iface") if cooling else "NOS"), yaxis=dict(range=[0,1], title="Manuf"), template="plotly_white")
+        fig.add_trace(go.Scatter(x=[r[xkey] for r in chunk], y=[r["manuf_score"] for r in chunk], mode="markers", name=ui.tier_label(lang, tier), marker=dict(size=[16 if r["pareto"] else 11 for r in chunk], color=color, symbol=["diamond" if r["pareto"] else "circle" for r in chunk]), text=[f"{r['formula']} · {verdict_label(lang, r.get('verdict'))}" for r in chunk], hoverinfo="text"))
+    fig.update_layout(height=400, xaxis=dict(range=[0,1], title=t(lang,"ax_x") if cooling else "NOS"), yaxis=dict(range=[0,1], title=t(lang, "ax_y")), template="plotly_white", margin=dict(t=20))
+    st.caption(t(lang, "chart_caption") if cooling else t(lang, "chart_caption_generic"))
     st.plotly_chart(fig, width="stretch")
 
 def tim_panel(cfg, lang):
     st.subheader(t(lang, "tim_title"))
     st.caption(site_note(cfg.get("site") or DEFAULT_SITE, lang))
-    st.dataframe(pd.DataFrame(tim_ref(lang)), width="stretch", hide_index=True)
+    st.dataframe(pd.DataFrame(tim_ref(lang)), width="stretch", hide_index=True,
+                 column_config={"name": st.column_config.TextColumn(t(lang, "tim_col_name")),
+                                "kappa": st.column_config.TextColumn("κ (W/m·K)", help=t(lang, "h_kappa")),
+                                "form": st.column_config.TextColumn(t(lang, "tim_col_form")),
+                                "note": st.column_config.TextColumn(t(lang, "tim_col_note"))})
 
 def _num(v, spec):
     return None if v is None else float(format(v, spec))
 
-def table(rows, cooling, lang, cfg, mode):
-    df = pd.DataFrame([{
+def _csv_frame(rows, lang):
+    # Same columns, headers and verdict codes as before v0.5: this is what the CSV exports.
+    return pd.DataFrame([{
         "Rank": r["rank"], "Formula": r["formula"], "Score": r["combined"], "NOS": r["NOS"], "Manuf": r["manuf_score"],
         t(lang,"col_iface"): r.get("interface_score"), t(lang,"col_dcte"): r.get("dcte_max"),
         t(lang,"col_verdict"): r.get("verdict"), "k bulk": r.get("kappa_wm_k"), t(lang,"col_kneed"): r.get("kappa_needed"),
         t(lang,"col_dtc"): _num(r.get("dt_coat"), ".2f"), t(lang,"col_dtt"): _num(r.get("dt_tim"), ".2f"),
         t(lang,"col_flags"): len(r.get("flags") or []),
     } for r in rows])
-    st.dataframe(df, width="stretch", hide_index=True, height=320)
-    buf = io.StringIO(); df.to_csv(buf, index=False)
-    c1,c2,c3,c4 = st.columns(4)
-    with c1: st.download_button(t(lang,"csv"), data=buf.getvalue(), file_name=f"nos_ranking_{lang}.csv", mime="text/csv", on_click="ignore")
-    with c2: st.download_button(t(lang,"pdf"), data=build_pdf(lang, cfg, rows, mode), file_name=f"nos_report_{lang}.pdf", mime="application/pdf", on_click="ignore")
-    with c3: st.download_button(t(lang,"pdf_all"), data=build_zip_all_langs(cfg, rows, mode), file_name="nos_reports_es_en_fr_de.zip", mime="application/zip", on_click="ignore")
-    phase = pick_phase(rows)
-    with c4:
-        if phase:
-            st.download_button(t(lang, "coupon_pdf"), data=build_coupon_pdf(cfg, rows, phase=phase, contact=f"Wilmer Espinoza - {_contact()}"), file_name=f"nos_coupon_{phase.get('formula','phase')}.pdf", mime="application/pdf", on_click="ignore")
-        else:
-            st.caption(verdict_text(lang, "process_veto"))
 
-def email_options(lang, label, subject, body, primary=False):
+def _colcfg(lang):
+    N = st.column_config.NumberColumn
+    return {
+        t(lang, "d_rank"): N(format="%d", width="small"),
+        t(lang, "d_score"): N(format="%.4f", help=t(lang, "h_score")),
+        "NOS": N(format="%.4f"),
+        t(lang, "d_manuf"): N(format="%.4f"),
+        t(lang, "d_iface"): N(format="%.4f", help=t(lang, "h_cte")),
+        t(lang, "d_dcte"): N(format="%.1f", help=t(lang, "h_cte")),
+        t(lang, "d_kbulk"): N(format="%.1f", help=t(lang, "h_kappa")),
+        t(lang, "d_kneed"): N(format="%.1f", help=t(lang, "h_kappa")),
+        t(lang, "d_dtc"): N(format="%.2f", help=t(lang, "h_dtc")),
+        t(lang, "d_dtt"): N(format="%.2f", help=t(lang, "h_dtt")),
+        t(lang, "d_flags"): N(format="%d", help=t(lang, "h_flags")),
+    }
+
+def table(rows, cooling, lang, cfg, mode):
+    short = pd.DataFrame([{
+        t(lang, "d_rank"): r["rank"], t(lang, "d_phase"): r["formula"],
+        t(lang, "d_verdict"): verdict_label(lang, r.get("verdict"), dot=True),
+        t(lang, "d_dcte"): r.get("dcte_max"), t(lang, "d_dtc"): _num(r.get("dt_coat"), ".2f"), t(lang, "d_dtt"): _num(r.get("dt_tim"), ".2f"),
+    } for r in rows])
+    st.dataframe(short, width="stretch", hide_index=True, column_config=_colcfg(lang))
+    with st.expander(t(lang, "full_table")):
+        full = pd.DataFrame([{
+            t(lang, "d_rank"): r["rank"], t(lang, "d_phase"): r["formula"], t(lang, "d_score"): r["combined"], "NOS": r["NOS"],
+            t(lang, "d_manuf"): r["manuf_score"], t(lang, "d_iface"): r.get("interface_score"), t(lang, "d_dcte"): r.get("dcte_max"),
+            t(lang, "d_verdict"): verdict_label(lang, r.get("verdict"), dot=True), t(lang, "d_kbulk"): r.get("kappa_wm_k"),
+            t(lang, "d_kneed"): r.get("kappa_needed"), t(lang, "d_dtc"): _num(r.get("dt_coat"), ".2f"),
+            t(lang, "d_dtt"): _num(r.get("dt_tim"), ".2f"), t(lang, "d_flags"): len(r.get("flags") or []),
+        } for r in rows])
+        st.dataframe(full, width="stretch", hide_index=True, column_config=_colcfg(lang))
+    buf = io.StringIO(); _csv_frame(rows, lang).to_csv(buf, index=False)
+    st.markdown(f"**{t(lang, 'downloads')}**")
+    c1,c2,c3,c4 = st.columns(4)
+    pcfg = _pdf_cfg(cfg)
+    with c1: st.download_button(t(lang,"csv"), data=buf.getvalue(), file_name=f"nos_ranking_{lang}.csv", mime="text/csv", on_click="ignore", width="stretch")
+    with c2: st.download_button(t(lang,"pdf"), data=_report_pdf(lang, pcfg, rows, mode), file_name=f"nos_report_{lang}.pdf", mime="application/pdf", on_click="ignore", width="stretch")
+    with c3: st.download_button(t(lang,"pdf_all"), data=_report_zip(pcfg, rows, mode), file_name="nos_reports_es_en_fr_de.zip", mime="application/zip", on_click="ignore", width="stretch")
+    with c4: coupon_button(cfg, rows, lang, key="dl_coupon_row")
+
+def email_options(lang, label, subject, body, primary=False, short=False):
     """A mailto: link alone opens a blank tab when the browser has no mail app (e.g. Gmail
     users on the web), so offer webmail compose links and the text to copy as well."""
     to, su, bo = quote(_contact()), quote(subject), quote(body)
     gmail = f"https://mail.google.com/mail/?view=cm&fs=1&to={to}&su={su}&body={bo}"
     outlook = f"https://outlook.live.com/mail/0/deeplink/compose?to={to}&subject={su}&body={bo}"
     mailto = f"mailto:{_contact()}?subject={su}&body={bo}"
-    c1, c2, c3 = st.columns(3)
-    with c1: st.link_button(f"{label} · Gmail", gmail, type="primary" if primary else "secondary", width="stretch")
-    with c2: st.link_button(f"{label} · Outlook", outlook, width="stretch")
+    # In the narrow popover the three buttons go one under the other.
+    c1, c2, c3 = (st.container(), st.container(), st.container()) if short else st.columns(3)
+    g_label, o_label = (t(lang, "open_gmail"), t(lang, "open_outlook")) if short else (f"{label} · Gmail", f"{label} · Outlook")
+    with c1: st.link_button(g_label, gmail, type="primary" if primary else "secondary", width="stretch")
+    with c2: st.link_button(o_label, outlook, width="stretch")
     with c3: st.link_button(t(lang, "email_app"), mailto, width="stretch")
     with st.expander(t(lang, "email_copy")):
         st.markdown(f"{t(lang, 'email_to')}: **{_contact()}**")
@@ -185,7 +310,7 @@ def email_options(lang, label, subject, body, primary=False):
         st.code(body, language=None)
 
 def request_panel(rows, cfg, lang):
-    st.subheader(t(lang, "request_h"))
+    st.markdown(f"**{t(lang, 'request_h')}**")
     phase = pick_phase(rows) or {}
     site_en = site_spec(cfg.get("site"), "en")["label"]
     subject = f"NOS study request - {phase.get('formula', '')} - {site_en}"
@@ -200,7 +325,7 @@ def request_panel(rows, cfg, lang):
         "My real stack / what fails today:", "",
         "Company / role (optional):", "",
     ])
-    email_options(lang, t(lang, "request_btn"), subject, body, primary=True)
+    email_options(lang, t(lang, "request_btn"), subject, body, primary=True, short=True)
     st.caption(t(lang, "request_caption"))
 
 def detail(rows, lang):
@@ -208,24 +333,32 @@ def detail(rows, lang):
     if not labels: return
     choice = st.selectbox(t(lang,"fiche"), labels); row = rows[labels.index(choice)]
     c1,c2,c3,c4 = st.columns(4)
-    c1.metric(t(lang,"col_iface"), f"{row['interface_score']:.3f}", None if row.get("dcte_max") is None else f"dCTE {row['dcte_max']:.1f} ppm/K", delta_color="off")
-    c2.metric("Manuf", f"{row['manuf_score']:.3f}")
-    c3.metric("k bulk / " + t(lang,"col_kneed"), ("—" if row.get("kappa_wm_k") is None else f"{row['kappa_wm_k']:.1f}") + f" / {row['kappa_needed']:.1f}")
-    c4.metric("Score", f"{row['combined']:.3f}")
+    c1.metric(t(lang,"d_iface"), f"{row['interface_score']:.3f}", None if row.get("dcte_max") is None else f"ΔCTE {row['dcte_max']:.1f} ppm/K", delta_color="off", help=t(lang, "h_cte"))
+    c2.metric(t(lang, "d_manuf"), f"{row['manuf_score']:.3f}")
+    c3.metric("κ bulk / " + t(lang,"d_kneed").split(" (")[0], ("—" if row.get("kappa_wm_k") is None else f"{row['kappa_wm_k']:.1f}") + f" / {row['kappa_needed']:.1f}", help=t(lang, "h_kappa"))
+    c4.metric(t(lang, "d_score"), f"{row['combined']:.3f}", help=t(lang, "h_score"))
     verdict = row.get("verdict") or "coupon_cte_unknown"
-    st.info(f"{t(lang,'verdict_h')}: {verdict} — {verdict_text(lang, verdict)}")
+    st.badge(verdict_label(lang, verdict), color=VERDICT_COLOR.get(verdict, "orange"))
+    st.markdown(verdict_text(lang, verdict))
+    st.caption(t(lang, "code_caption").format(c=verdict))
     with st.expander(t(lang, "notes_h"), expanded=True):
         for line in (row.get("interface_notes") or []) + (row.get("relevance_notes") or []) + (row.get("flag_notes") or []) + (row.get("manuf_notes") or []):
-            st.markdown(f"- {line}")
+            st.markdown(f"- {ui.note(lang, line)}")
         if row.get("thermal_citation"):
             st.caption(row["thermal_citation"])
 
 def standards_panel(std_key, lang):
-    spec = STANDARDS[std_key]
+    spec = ui.standard(lang, std_key)
     st.subheader(t(lang,"tests_h"))
-    st.caption(spec["blurb"])
-    st.dataframe(pd.DataFrame(spec["tests"]), width="stretch", hide_index=True)
+    st.caption(f"{spec['label']} · {spec['blurb']}")
+    df = pd.DataFrame(spec["tests"], columns=[t(lang, "code"), t(lang, "test"), t(lang, "hits"), t(lang, "fail")])
+    st.dataframe(df, width="stretch", hide_index=True)
     st.info(spec["next_step"])
+
+def context_panel(cfg, lang, expanded=False):
+    with st.expander(t(lang, "context_h"), expanded=expanded):
+        tim_panel(cfg, lang)
+        standards_panel(cfg["standard"], lang)
 
 def _opt(label, lang, **kw):
     return st.number_input(label, value=None, placeholder=t(lang, "f_optional"), **kw)
@@ -271,7 +404,7 @@ def _next_coupon_id(log):
 
 def results_panel(cfg, lang, top_phase):
     st.subheader(t(lang, "log_h"))
-    st.caption(t(lang, "log_caption"))
+    st.caption(t(lang, "log_caption"), help=t(lang, "h_coupon"))
     log = st.session_state.setdefault("coupon_log", [])
     # The ID field must move on after each add/undo/upload, or the next stage-0 entry would
     # silently replace the previous coupon (results.add treats same ID + stage as a correction).
@@ -299,7 +432,7 @@ def results_panel(cfg, lang, top_phase):
         with c1:
             coupon_id = st.text_input(t(lang, "f_coupon_id"), key="lf_coupon_id")
             coating = st.text_input(t(lang, "f_coating"), value=(top_phase or {}).get("formula", ""))
-            process = st.selectbox(t(lang, "f_process"), list(PROCESS_OPTIONS.keys()) + ["Arc / flame wire spray", "Other"],
+            process = st.selectbox(t(lang, "f_process"), list(PROCESS_OPTIONS.keys()) + ["Arc / flame wire spray", "Other"], format_func=lambda k: ui.process_label(lang, k),
                                    index=list(PROCESS_OPTIONS.keys()).index(cfg.get("process_label")) if cfg.get("process_label") in PROCESS_OPTIONS else 0)
             shop = st.text_input(t(lang, "f_shop"))
             subs = list(SUBSTRATES.keys())
@@ -370,26 +503,23 @@ def results_panel(cfg, lang, top_phase):
     st.caption(t(lang, "log_send_caption"))
 
 def screening_view(cfg, lang):
-    if not st.session_state.get("nos_ran"):
-        st.info(t(lang,"empty")); tim_panel(cfg, lang); standards_panel(cfg["standard"], lang); return None
+    if cfg["live"] and not st.session_state.get("live_ran"):
+        st.info(t(lang, "live_hint")); context_panel(cfg, lang, expanded=True); return None
     rows, mode = screen(cfg)
-    if rows is None: return None
-    st.success(f"{len(rows)} · {APPLICATIONS[cfg['application']]['label']} · {cfg['substrate']} · {site_spec(cfg.get('site'), lang)['label']}")
-    metrics(rows, mode, cfg["cooling"], lang)
-    if cfg["cooling"]: stability_panel(rows, lang)
-    scatter(rows, cfg["cooling"], lang)
-    st.subheader(t(lang,"ranking")); table(rows, cfg["cooling"], lang, cfg, mode)
-    request_panel(rows, cfg, lang)
-    st.subheader(t(lang,"verdict_h")); detail(rows, lang)
-    tim_panel(cfg, lang)
-    standards_panel(cfg["standard"], lang)
+    if rows is None:
+        context_panel(cfg, lang, expanded=True); return None
+    recommendation_card(rows, cfg, lang, mode)
+    st.subheader(t(lang, "summary_h")); table(rows, cfg["cooling"], lang, cfg, mode)
+    st.subheader(t(lang, "chart_h")); scatter(rows, cfg["cooling"], lang)
+    st.subheader(t(lang, "detail_h")); detail(rows, lang)
+    context_panel(cfg, lang)
     return rows
 
 def main():
     cfg = sidebar(); lang = cfg.get("lang","es"); header(lang)
     if cfg["run"]:
-        # After the first run, results stay on screen and follow every sidebar change.
-        st.session_state["nos_ran"] = True
+        # Materials Project results stay on screen and follow every later sidebar change.
+        st.session_state["live_ran"] = True
     tab_screen, tab_log = st.tabs([t(lang, "tab_screen"), t(lang, "tab_log")])
     with tab_screen:
         rows = screening_view(cfg, lang)
