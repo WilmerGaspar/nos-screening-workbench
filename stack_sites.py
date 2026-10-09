@@ -22,10 +22,10 @@ SITES = {
         "fail": "dVCE(sat) / dVDS típ. +5%",
         "heat_path": True,
         "neighbors": [("die", "die"), ("Cu", "Cu (DBC copper)")],
-        "blurb": "Capa junto al die. Ciclado de potencia corto. No es un TIM.",
+        "blurb": "Capa junto al chip. Ciclado de potencia corto. No es un TIM.",
     },
     "dbc_baseplate": {
-        "label": "DBC -> baseplate",
+        "label": "DBC -> placa base",
         "aqg": "PCmin / QL-02",
         "fail": "dRth(j-c) típ. +20%",
         "heat_path": True,
@@ -33,12 +33,12 @@ SITES = {
         "blurb": "Capa gruesa / soldadura del sustrato. Rth del módulo.",
     },
     "bond_coat": {
-        "label": "Bond-coat / oxidación (fuera del camino de calor)",
+        "label": "Capa de anclaje (bond coat) / oxidación (fuera del camino de calor)",
         "aqg": "TC / TST + oxidación",
-        "fail": "delam",
+        "fail": "delaminación",
         "heat_path": False,
         "neighbors": [("substrate", "substrate")],
-        "blurb": "Protección, no disipador. FeAl va aquí.",
+        "blurb": "Protección, no difusor de calor (heat spreader). FeAl va aquí.",
     },
     "cold_plate": {
         "label": "Cold plate / leadframe (Cu)",
@@ -53,9 +53,9 @@ DEFAULT_SITE = "cold_plate"
 
 TIM_REF = [
     {"name": "Grasa térmica", "kappa": "3-8", "form": "TIM", "note": "Material de interfaz; no es un recubrimiento."},
-    {"name": "Gap pad / pad térmico", "kappa": "5-15", "form": "TIM", "note": "Flexible; no es una fase intermetálica."},
-    {"name": "Soldadura (attach)", "kappa": "~50", "form": "metal", "note": "Die-attach clásico."},
-    {"name": "NiAl bulk (Terada 2002)", "kappa": "92.2", "form": "bulk 300 K", "note": "No es TIM. No es k de capa PVD."},
+    {"name": "Almohadilla térmica (gap pad)", "kappa": "5-15", "form": "TIM", "note": "Deformable (compliant); no es una fase intermetálica."},
+    {"name": "Soldadura blanda (solder attach)", "kappa": "~50", "form": "metal", "note": "Die-attach clásico."},
+    {"name": "NiAl bulk (Terada 2002)", "kappa": "92.2", "form": "bulk 300 K", "note": "No es un TIM. No es la k de una capa PVD."},
     {"name": "Cu", "kappa": "401", "form": "metal", "note": "Cold plate / leadframe."},
 ]
 
@@ -81,6 +81,7 @@ SITES_EN = {
     "bond_coat": {
         "label": "Bond-coat / oxidation (not the heat path)",
         "aqg": "TC / TST + oxidation",
+        "fail": "delam",
         "blurb": "Protection, not a spreader. FeAl belongs here.",
     },
     "cold_plate": {

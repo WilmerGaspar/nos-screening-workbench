@@ -14,9 +14,9 @@ from standards import STANDARDS
 _APPS = {
     "es": {
         "cpu_cold_plate": ("Cold plate de CPU / centro de datos", "Dominan la κ y el CTE frente al Cu."),
-        "si_power_module": ("Módulo de potencia Si (IGBT / MOSFET)", "Unión (juntura) ~150 °C."),
-        "sic_power_module": ("Módulo de potencia SiC", "Unión (juntura) 175-200 °C."),
-        "generic_coating": ("Recubrimiento genérico de alta T (sin refrigeración)", "Sin umbral de κ."),
+        "si_power_module": ("Módulo de potencia Si (IGBT / MOSFET)", "Temperatura de unión (Tj) ~150 °C."),
+        "sic_power_module": ("Módulo de potencia SiC", "Temperatura de unión (Tj) 175-200 °C."),
+        "generic_coating": ("Recubrimiento genérico de alta T (no para refrigeración)", "Sin umbral de κ."),
     },
 }
 
@@ -25,7 +25,7 @@ _SYSTEMS = {
         "cited7": "7 fases citadas  ·  dictamen térmico completo",
         "Ni,Al": "Ni-Al  ·  NiAl + Ni3Al (IGBT)",
         "Co,Al": "Co-Al  ·  CoAl 37 W/mK",
-        "Fe,Al": "Fe-Al  ·  FeAl 12 W/mK (no disipa)",
+        "Fe,Al": "Fe-Al  ·  FeAl 12 W/mK (no es difusor de calor)",
         "Fe,Ti": "Fe-Ti  ·  FeTi 73 W/mK",
         "Ni,Ga": "Ni-Ga  ·  NiGa + Ni3Ga",
         "Ti,Al": "Ti-Al  ·  sin κ citable",
@@ -51,8 +51,8 @@ _SYSTEMS = {
 
 _PROCESSES = {
     "es": {
-        "PVD (sputter / arc)": "PVD (pulverización / arco)",
-        "Thermal spray / HVOF": "Proyección térmica / HVOF",
+        "PVD (sputter / arc)": "PVD (pulverización catódica / arco)",
+        "Thermal spray / HVOF": "Proyección térmica (thermal spray) / HVOF",
         "Electroplating": "Electrodeposición",
         "Arc / flame wire spray": "Proyección por arco / llama con alambre",
         "Other": "Otro",
@@ -62,8 +62,8 @@ _PROCESSES = {
 _TIERS = {
     "es": {
         "Experimentally verified": "Verificado experimentalmente",
-        "Partially backed": "Respaldo parcial",
-        "Well-calculated (DFT)": "Bien calculado (DFT)",
+        "Partially backed": "Parcialmente respaldado",
+        "Well-calculated (DFT)": "Calculado con DFT",
         "Exploratory": "Exploratorio",
     },
 }
@@ -72,34 +72,34 @@ _TIERS = {
 _STANDARDS = {
     "es": {
         "aqg324": {
-            "label": "ECPE AQG 324 (automoción, Rel. 04.1/2025)",
-            "blurb": "Guía de la industria para módulos en vehículos <= 3.5 t. Si en el cuerpo, SiC en anexo.",
+            "label": "ECPE AQG 324 (automotriz, Rel. 04.1/2025)",
+            "blurb": "Guía de la industria para módulos en vehículos <= 3.5 t. Si en el texto principal, SiC en un anexo.",
             "tests": [
                 ("PCsec / QL-01", "Ciclado de potencia corto", "wirebond, die-attach", "dVCE(sat) típ. +5%"),
-                ("PCmin / QL-02", "Ciclado de potencia largo", "DBC-baseplate, capas gruesas", "dRth típ. +20%"),
+                ("PCmin / QL-02", "Ciclado de potencia largo", "DBC-placa base, capas gruesas", "dRth típ. +20%"),
                 ("HTRB / QL-05", "Polarización inversa a alta temperatura (HTRB)", "chip / pasivación", "fuga según protocolo"),
                 ("H3TRB / QL-07", "Humedad + polarización", "encapsulado e interfaces", "fuga / corrosión"),
-                ("TC / TST", "Ciclado / choque térmico", "dCTE capa-sustrato y capa-die", "delaminación / Rth"),
+                ("TC / TST", "Ciclado / choque térmico", "dCTE capa-sustrato y capa-chip", "delaminación / Rth"),
             ],
-            "next_step": "El workbench elige la fase. La probeta (cupón) se califica fuera. No afirmar que cumple AQG 324.",
+            "next_step": "El workbench elige la fase. La cualificación de la probeta se hace fuera de esta herramienta. No afirmar que cumple AQG 324.",
         },
         "iec_pc": {
             "label": "IEC 60749-34-1:2025 (ciclado de potencia)",
             "blurb": "Método IEC de ciclado de potencia para IGBT / MOSFET / diodo.",
             "tests": [
-                ("PCsec (1-30 s)", "Excursión de Tvj", "wirebond y attach", "dVCE/VDS/VF >= +5%"),
-                ("PCmin (>= 3 min)", "Excursión de Tc", "sustrato-baseplate", "dRth(j-c) >= +20%"),
+                ("PCsec (1-30 s)", "Variación de Tvj (ΔTvj)", "wirebond y die-attach", "dVCE/VDS/VF >= +5%"),
+                ("PCmin (>= 3 min)", "Variación de Tc (ΔTc)", "sustrato-placa base", "dRth(j-c) >= +20%"),
             ],
-            "next_step": "R_coat del demo no es Rth,jc.",
+            "next_step": "La R_coat de la demo no es la Rth,jc.",
         },
         "iec_rth": {
-            "label": "IEC 60747-15:2024 (Rth de dispositivo aislado)",
-            "blurb": "La Rth se declara por interruptor (párrafo 6.2.4).",
+            "label": "IEC 60747-15:2024 (Rth de dispositivos aislados)",
+            "blurb": "La Rth se declara por interruptor (switch); apartado 6.2.4.",
             "tests": [
                 ("6.2.4", "Rth por interruptor", "die -> case", "fuera de Rth,max"),
-                ("aislamiento", "Ensayo de aislamiento", "DBC / capa sobre baseplate", "ruptura / fuga"),
+                ("aislamiento", "Ensayo de aislamiento", "DBC / capa sobre placa base", "ruptura / fuga"),
             ],
-            "next_step": "La κ bulk no entra en la hoja de datos. Entra la Rth medida.",
+            "next_step": "La κ bulk no entra en la hoja de datos (datasheet). Entra la Rth medida.",
         },
         "generic": {
             "label": "Recubrimiento genérico (sin cualificación de módulo)",
@@ -193,9 +193,9 @@ import re
 
 _FIXED_ES = {
     "Ni/Fe next to Cu: look for an interdiffusion zone in the cross-section (practitioner input; may be negligible near 150 C - measure, do not assume).":
-        "Ni/Fe junto al Cu: buscar una zona de interdifusión en el corte (aporte de ingenieros de materiales; puede ser despreciable cerca de 150 °C: medir, no suponer).",
+        "Ni/Fe junto al Cu: buscar una zona de interdifusión en el corte (aporte práctico no publicado; puede ser despreciable cerca de 150 °C: medir, no suponer).",
     "Al/Ti in the coating: look for surface oxide at the interface in the cross-section (practitioner input).":
-        "Al/Ti en el recubrimiento: buscar óxido superficial en la interfaz en el corte (aporte de ingenieros de materiales).",
+        "Al/Ti en el recubrimiento: buscar óxido superficial en la interfaz en el corte (aporte práctico no publicado).",
     "Coating CTE has no DOI in this repo: verify the value before quoting it.":
         "El CTE del recubrimiento no tiene DOI en este repositorio: verificar el valor antes de citarlo.",
     "No CTE value for this phase: the interface verdict needs a coupon.":
@@ -203,24 +203,24 @@ _FIXED_ES = {
     "Coating touches a semiconductor die: metallic coatings sit far from the die CTE.":
         "El recubrimiento toca un chip semiconductor: los recubrimientos metálicos quedan lejos del CTE del chip.",
     "Al and Cu meet at this interface: Al-Cu intermetallics can grow there. They are harder than Al and Cu (a mechanical weak point), and theta (Al2Cu) can turn into Al4Cu9 when Al runs short, reported at 175-250 C in Al-Cu wire bonds (Xu et al. 2011, cited in Nazarahari et al. 2026, DOI 10.1002/adem.202501357). Measure the IMC thickness at each checkpoint.":
-        "Al y Cu se encuentran en esta interfaz: ahí pueden crecer intermetálicos Al-Cu. Son más duros que el Al y el Cu (un punto débil mecánico), y theta (Al2Cu) puede convertirse en Al4Cu9 cuando falta Al, observado a 175-250 °C en uniones de hilo Al-Cu (Xu et al. 2011, citado en Nazarahari et al. 2026, DOI 10.1002/adem.202501357). Medir el espesor del intermetálico en cada punto de control.",
+        "Al y Cu se encuentran en esta interfaz: ahí pueden crecer intermetálicos Al-Cu. Son más duros que el Al y el Cu (un punto débil mecánico), y theta (Al2Cu) puede convertirse en Al4Cu9 cuando falta Al, observado a 175-250 °C en uniones por hilo Al-Cu (wire bonds) (Xu et al. 2011, citado en Nazarahari et al. 2026, DOI 10.1002/adem.202501357). Medir el espesor del intermetálico en cada punto de control.",
     "No citable bulk kappa: measure film kappa on the coupon only if the interface survives.":
-        "Sin κ bulk citable: medir la κ de la película en la probeta solo si la interfaz sobrevive.",
+        "Sin κ bulk citable: medir la κ de la capa depositada en la probeta solo si la interfaz sobrevive.",
     "Even at bulk kappa (an upper bound) the coating is a meaningful thermal term.":
         "Incluso con la κ bulk (un límite superior), el recubrimiento es un término térmico importante.",
     "No coating CTE in the catalog: interface score set to neutral 0.5.":
         "Sin CTE del recubrimiento en el catálogo: puntaje de interfaz neutro de 0.5.",
     "Aqueous electroplating veto: majority of chemistry is not plateable from water baths.":
-        "Veto de electrodeposición acuosa: la mayor parte de la química no se deposita desde baños acuosos.",
+        "Veto de electrodeposición acuosa: la mayor parte de la composición no se puede depositar desde baños acuosos.",
     "Constituents are aqueous-plateable. Expect a conversion anneal.":
-        "Los constituyentes se depositan en baño acuoso. Prever un recocido de conversión.",
+        "Los constituyentes se pueden depositar en baño acuoso. Prever un recocido de difusión para formar la fase.",
     "High Zn is a poor HVOF match.": "Un contenido alto de Zn encaja mal con HVOF.",
     "Published spray trail.": "Hay literatura publicada de proyección térmica.",
     "No spray literature trail in the ruleset.": "Sin literatura de proyección térmica en las reglas.",
     "PVD can deposit most intermetallics; residual stress is the risk.":
         "El PVD puede depositar la mayoría de los intermetálicos; el riesgo es la tensión residual.",
-    "Service T above the Zn-rich window (~200 C).": "T de servicio por encima de la ventana rica en Zn (~200 °C).",
-    "T>450 C without Al/Cr/Si scale former.": "T > 450 °C sin formador de capa de óxido Al/Cr/Si.",
+    "Service T above the Zn-rich window (~200 C).": "T de servicio por encima del rango de uso de las fases ricas en Zn (~200 °C).",
+    "T>450 C without Al/Cr/Si scale former.": "T > 450 °C sin formador de capa de óxido protectora (Al/Cr/Si).",
     "T>600 C: interdiffusion and softening dominate.": "T > 600 °C: dominan la interdifusión y el ablandamiento.",
     "No elasticity data; Pugh not computed.": "Sin datos elásticos; no se calcula el criterio de Pugh.",
     "Zn-Fe zeta; service ~200 C.": "Zn-Fe zeta; servicio ~200 °C.",
@@ -229,23 +229,23 @@ _FIXED_ES = {
 }
 
 _NEIGHBORS_ES = [("(substrate)", "(sustrato)"), ("(baseplate)", "(placa base)"), ("Cu (DBC copper)", "Cu (cobre del DBC)"),
-                 ("Al bond wire", "hilo de Al (wire bond)"), (" die", " (chip)")]
+                 ("Al bond wire", "hilo de Al (bond wire)"), (" die", " (chip)")]
 
 _PATTERNS_ES = [
     (r"^TIM term: (\S+) um at (\S+) W/mK (?:->|→) dT_TIM = (\S+) K at (\S+) W over (\S+) cm2 \(editable assumption\)\.$",
      "Término del TIM: {0} µm a {1} W/m·K → ΔT_TIM = {2} K con {3} W en {4} cm² (supuesto editable)."),
     (r"^Film kappa needed to keep the coating (?:<=|≤) (\S+) of the coating\+TIM dT: (\S+) W/mK\.$",
-     "κ de película necesaria para que la capa no pase del {0} del ΔT capa+TIM: {1} W/m·K."),
+     "κ de la capa depositada necesaria para que la capa no pase del {0} del ΔT capa+TIM: {1} W/m·K."),
     (r"^Coating at bulk kappa (\S+) W/mK: dT_coat = (\S+) K, (\S+) of the coating\+TIM dT\.$",
      "Capa con κ bulk {0} W/m·K: ΔT_capa = {1} K, el {2} del ΔT capa+TIM."),
     (r"^The film may lose up to (\S+) of its bulk kappa before it matters\.$",
-     "La película puede perder hasta el {0} de su κ bulk antes de que importe."),
+     "La capa depositada puede perder hasta el {0} de su κ bulk antes de que importe."),
     (r"^CTE coat (\S+) vs (.+) (?:->|→) dCTE (\S+) ppm/K\.$",
      "CTE de la capa {0} frente a {1} → ΔCTE {2} ppm/K."),
     (r"^Thermal side of Al-Cu IMC growth: even the lowest-k phase measured \((\S+), (\S+) W/mK\) stays under (\S+) of the IMC\+TIM dT up to ~(\S+) um\. Below that, IMC growth is a mechanical question \(cracking, hardness\), not a thermal one\.$",
      "Lado térmico del crecimiento de intermetálicos Al-Cu: incluso la fase medida de menor κ ({0}, {1} W/m·K) se queda por debajo del {2} del ΔT intermetálico+TIM hasta ~{3} µm. Por debajo de eso, el crecimiento del intermetálico es una cuestión mecánica (grietas, dureza), no térmica."),
     (r"^Partial electroplating fit\. Difficult: (.+)$", "Electrodeposición parcialmente viable. Difíciles: {0}"),
-    (r"^T>450 C with oxide formers: (.+)$", "T > 450 °C con formadores de óxido: {0}"),
+    (r"^T>450 C with oxide formers: (.+)$", "T > 450 °C con formadores de capa de óxido protectora: {0}"),
     (r"^Pugh B/G = (\S+) < 1\.75 brittle tendency \(Pugh 1954\)\.$", "Pugh B/G = {0} < 1.75: tendencia frágil (Pugh 1954)."),
     (r"^Pugh B/G = (\S+) (?:>=|≥) 1\.75 more ductile tendency\.$", "Pugh B/G = {0} ≥ 1.75: tendencia más dúctil."),
 ]
