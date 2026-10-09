@@ -96,7 +96,7 @@ _STANDARDS = {
             "label": "IEC 60747-15:2024 (Rth de dispositivos aislados)",
             "blurb": "La Rth se declara por interruptor (switch); apartado 6.2.4.",
             "tests": [
-                ("6.2.4", "Rth por interruptor", "die -> case", "fuera de Rth,max"),
+                ("6.2.4", "Rth por interruptor", "chip -> carcasa (case)", "fuera de Rth,max"),
                 ("aislamiento", "Ensayo de aislamiento", "DBC / capa sobre placa base", "ruptura / fuga"),
             ],
             "next_step": "La κ bulk no entra en la hoja de datos (datasheet). Entra la Rth medida.",
@@ -203,7 +203,7 @@ _FIXED_ES = {
     "Coating touches a semiconductor die: metallic coatings sit far from the die CTE.":
         "El recubrimiento toca un chip semiconductor: los recubrimientos metálicos quedan lejos del CTE del chip.",
     "Al and Cu meet at this interface: Al-Cu intermetallics can grow there. They are harder than Al and Cu (a mechanical weak point), and theta (Al2Cu) can turn into Al4Cu9 when Al runs short, reported at 175-250 C in Al-Cu wire bonds (Xu et al. 2011, cited in Nazarahari et al. 2026, DOI 10.1002/adem.202501357). Measure the IMC thickness at each checkpoint.":
-        "Al y Cu se encuentran en esta interfaz: ahí pueden crecer intermetálicos Al-Cu. Son más duros que el Al y el Cu (un punto débil mecánico), y theta (Al2Cu) puede convertirse en Al4Cu9 cuando falta Al, observado a 175-250 °C en uniones por hilo Al-Cu (wire bonds) (Xu et al. 2011, citado en Nazarahari et al. 2026, DOI 10.1002/adem.202501357). Medir el espesor del intermetálico en cada punto de control.",
+        "Al y Cu se encuentran en esta interfaz: ahí pueden crecer intermetálicos Al-Cu. Son más duros que el Al y el Cu (un punto débil mecánico), y theta (Al2Cu) puede convertirse en Al4Cu9 cuando falta Al, observado a 175-250 °C en uniones por hilo Al-Cu (wire bonds; Xu et al. 2011, citado en Nazarahari et al. 2026, DOI 10.1002/adem.202501357). Medir el espesor del intermetálico en cada punto de control.",
     "No citable bulk kappa: measure film kappa on the coupon only if the interface survives.":
         "Sin κ bulk citable: medir la κ de la capa depositada en la probeta solo si la interfaz sobrevive.",
     "Even at bulk kappa (an upper bound) the coating is a meaningful thermal term.":

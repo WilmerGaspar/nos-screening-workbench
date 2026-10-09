@@ -13,6 +13,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from i18n import t, verdict_text
 from standards import STANDARDS
 from stack_sites import site_spec
+import ui_text
 
 _DEJAVU = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 _DEJAVU_B = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
@@ -60,7 +61,7 @@ def build_pdf(lang, cfg, rows, mode):
         [t(lang,"thickness"), f"{cfg.get('thickness_um')} um"],
         [t(lang,"site"), site_spec(cfg.get("site"), lang).get("label", "")],
         [t(lang,"tim_h"), f"{cfg.get('tim_um')} um @ {cfg.get('tim_kappa')} W/mK"],
-        [t(lang,"standard"), STANDARDS.get(cfg.get("standard") or "", {}).get("label","")],
+        [t(lang,"standard"), ui_text.standard(lang, cfg["standard"])["label"] if cfg.get("standard") in STANDARDS else ""],
     ]
     ct = Table(cfg_rows, colWidths=[55*mm, 120*mm])
     ct.setStyle(TableStyle([("FONTNAME",(0,0),(-1,-1),_FONT),("FONTSIZE",(0,0),(-1,-1),8),("BACKGROUND",(0,0),(0,-1),colors.HexColor("#f3f4f6")),("GRID",(0,0),(-1,-1),0.3,colors.HexColor("#d1d5db"))]))
@@ -75,7 +76,7 @@ def build_pdf(lang, cfg, rows, mode):
     story.append(rt)
     std_key = cfg.get("standard")
     if std_key in STANDARDS:
-        spec = STANDARDS[std_key]
+        spec = ui_text.standard(lang, std_key)  # same labels as the screen, in the report language
         story.append(Paragraph(t(lang,"report_std"), styles["h2"]))
         story.append(Paragraph(spec["label"] + " — " + spec.get("next_step",""), styles["s"]))
     story.append(Spacer(1, 6*mm))
