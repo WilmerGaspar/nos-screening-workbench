@@ -62,15 +62,16 @@ def _blank(v) -> bool:
     return v is None or (isinstance(v, str) and v.strip() == "")
 
 
-def validate(rec: Dict) -> List[str]:
-    """Return a list of problems; empty list = valid."""
-    errors: List[str] = []
+def problems(rec: Dict) -> List[Tuple[str, str, Tuple]]:
+    """Structured problems: (field, code, params). code in required, choice, number, range,
+    whole, cycles_needed. validate() renders them in English; the app translates them."""
+    out: List[Tuple[str, str, Tuple]] = []
     for f in ("coupon_id", "coating"):
         if _blank(rec.get(f)):
-            errors.append(f"{f} is required")
+            out.append((f, "required", ()))
     for f, allowed in CHOICE_FIELDS.items():
         if str(rec.get(f)) not in allowed:
-            errors.append(f"{f} must be one of {', '.join(allowed)}")
+            out.append((f, "choice", tuple(allowed)))
     for f, (lo, hi) in NUMBER_FIELDS.items():
         v = rec.get(f)
         if _blank(v):
@@ -78,19 +79,40 @@ def validate(rec: Dict) -> List[str]:
         try:
             x = float(v)
         except (TypeError, ValueError):
-            errors.append(f"{f} must be a number")
+            out.append((f, "number", ()))
             continue
         if x < lo or x > hi:
-            errors.append(f"{f} must be between {lo:g} and {hi:g}")
+            out.append((f, "range", (lo, hi)))
     if not _blank(rec.get("cycles")):
         try:
             if float(rec["cycles"]) != int(float(rec["cycles"])):
-                errors.append("cycles must be a whole number")
+                out.append(("cycles", "whole", ()))
         except (TypeError, ValueError):
             pass
     if str(rec.get("stage")) in ("1", "2") and _blank(rec.get("cycles")):
-        errors.append("cycles is required for stage 1 and 2")
-    return errors
+        out.append(("cycles", "cycles_needed", ()))
+    return out
+
+
+_EN = {
+    "required": "{f} is required",
+    "choice": "{f} must be one of {p}",
+    "number": "{f} must be a number",
+    "range": "{f} must be between {lo:g} and {hi:g}",
+    "whole": "{f} must be a whole number",
+    "cycles_needed": "cycles is required for stage 1 and 2",
+}
+
+
+def render_problem(field: str, code: str, params: Tuple, template: Optional[str] = None, label: Optional[str] = None) -> str:
+    tpl = template or _EN[code]
+    lo, hi = (params + (None, None))[:2] if code == "range" else (None, None)
+    return tpl.format(f=label or field, p=", ".join(map(str, params)), lo=lo or 0.0, hi=hi or 0.0)
+
+
+def validate(rec: Dict) -> List[str]:
+    """Return a list of problems in English; empty list = valid."""
+    return [render_problem(f, c, p) for f, c, p in problems(rec)]
 
 
 def outcome(rec: Dict) -> str:

@@ -215,6 +215,38 @@ def standards_panel(std_key, lang):
 def _opt(label, lang, **kw):
     return st.number_input(label, value=None, placeholder=t(lang, "f_optional"), **kw)
 
+def _choice(lang, field):
+    return lambda code: t(lang, f"c_{field}_{code}")
+
+def _log_table(log, lang):
+    """Readable view of the log. The CSV keeps the codes; this is display only."""
+    rows = []
+    for r in log:
+        rows.append({
+            t(lang, "f_coupon_id"): r["coupon_id"],
+            t(lang, "f_coating"): r["coating"],
+            t(lang, "f_stage"): t(lang, f"c_stage_{r['stage']}"),
+            t(lang, "f_thickness"): r.get("thickness_um"),
+            t(lang, "f_porosity"): r.get("porosity_pct"),
+            t(lang, "f_tape"): t(lang, f"c_tape_test_{r['tape_test']}"),
+            t(lang, "f_spall"): t(lang, f"c_spallation_{r['spallation']}"),
+            t(lang, "f_crack"): t(lang, f"c_crack_origin_{r['crack_origin']}"),
+            t(lang, "f_cycles"): r.get("cycles"),
+            t(lang, "f_shop"): r.get("shop"),
+            t(lang, "col_result"): t(lang, "os_" + rlog.outcome(r)),
+        })
+    return pd.DataFrame(rows)
+
+def _summary_table(log, lang):
+    rows = []
+    for s in rlog.summarize(log):
+        row = {t(lang, "f_coating"): s["coating"], t(lang, "col_coupons"): s["coupons"],
+               t(lang, "col_max_stage"): t(lang, f"c_stage_{s['max_stage']}")}
+        for o in rlog.OUTCOMES:
+            row[t(lang, "os_" + o)] = s[o]
+        rows.append(row)
+    return pd.DataFrame(rows)
+
 def _next_coupon_id(log):
     ids = {r["coupon_id"] for r in log}
     n = len(ids) + 1
@@ -259,10 +291,10 @@ def results_panel(cfg, lang, top_phase):
             substrate = st.selectbox(t(lang, "f_substrate"), subs, index=subs.index(cfg["substrate"]) if cfg.get("substrate") in subs else 0)
             target = st.number_input(t(lang, "f_target"), min_value=0.0, max_value=5000.0, value=float(cfg.get("thickness_um") or 20.0), step=5.0)
         with c2:
-            stage = st.radio(t(lang, "f_stage"), list(rlog.STAGES), horizontal=True)
-            tape = st.selectbox(t(lang, "f_tape"), list(rlog.TAPE))
-            spall = st.selectbox(t(lang, "f_spall"), list(rlog.SPALLATION))
-            crack = st.selectbox(t(lang, "f_crack"), list(rlog.CRACK_ORIGIN))
+            stage = st.radio(t(lang, "f_stage"), list(rlog.STAGES), horizontal=True, format_func=_choice(lang, "stage"))
+            tape = st.selectbox(t(lang, "f_tape"), list(rlog.TAPE), format_func=_choice(lang, "tape_test"))
+            spall = st.selectbox(t(lang, "f_spall"), list(rlog.SPALLATION), format_func=_choice(lang, "spallation"))
+            crack = st.selectbox(t(lang, "f_crack"), list(rlog.CRACK_ORIGIN), format_func=_choice(lang, "crack_origin"))
             cycles = _opt(t(lang, "f_cycles"), lang, min_value=0, step=1)
             peak = _opt(t(lang, "f_peak"), lang, min_value=-60.0, max_value=1500.0, step=5.0)
         with c3:
@@ -271,6 +303,7 @@ def results_panel(cfg, lang, top_phase):
             imc = _opt(t(lang, "f_imc"), lang, min_value=0.0, max_value=5000.0, step=0.5)
             rc = _opt(t(lang, "f_rc"), lang, min_value=0.0, step=0.01)
             notes = st.text_area(t(lang, "f_notes"), height=90)
+        st.caption(t(lang, "f_optional_note"))
         share = st.checkbox(t(lang, "f_share"), value=False)
         submitted = st.form_submit_button(t(lang, "log_add"), type="primary")
 
@@ -281,11 +314,17 @@ def results_panel(cfg, lang, top_phase):
                               imc_thickness_um=imc, contact_resistance_mohm=rc, notes=notes, share_anonymized=share)
         new_log, errors = rlog.add(log, rec)
         if errors:
-            st.error("\n".join(f"- {e}" for e in errors))
+            labels = {"coupon_id": "f_coupon_id", "coating": "f_coating", "stage": "f_stage", "tape_test": "f_tape",
+                      "spallation": "f_spall", "crack_origin": "f_crack", "target_thickness_um": "f_target",
+                      "thickness_um": "f_thickness", "porosity_pct": "f_porosity", "cycles": "f_cycles",
+                      "peak_temp_c": "f_peak", "imc_thickness_um": "f_imc", "contact_resistance_mohm": "f_rc"}
+            msgs = [rlog.render_problem(f, c, p, template=t(lang, "e_" + c), label=t(lang, labels.get(f, f)))
+                    for f, c, p in rlog.problems(rec)]
+            st.error("\n".join(f"- {m}" for m in msgs))
         else:
             st.session_state["coupon_log"] = new_log
             st.session_state["log_id_stale"] = True
-            st.session_state["log_flash"] = t(lang, "log_added").format(id=coupon_id, stage=stage, outcome=rlog.outcome(new_log[-1]))
+            st.session_state["log_flash"] = t(lang, "log_added").format(id=coupon_id, stage=stage, outcome=t(lang, "os_" + rlog.outcome(new_log[-1])))
             st.rerun()
     if flash:
         st.success(flash)
@@ -297,12 +336,12 @@ def results_panel(cfg, lang, top_phase):
     a.metric(t(lang, "log_n"), len({r["coupon_id"] for r in log}))
     b.metric(t(lang, "log_iface"), sum(1 for r in log if rlog.outcome(r) == "interface_limited"))
     c.metric(t(lang, "log_pass"), sum(1 for r in log if rlog.outcome(r) == "passed_stage"))
-    df = pd.DataFrame([{**r, "outcome": rlog.outcome(r)} for r in log])
-    st.dataframe(df, width="stretch", hide_index=True)
+    st.dataframe(_log_table(log, lang), width="stretch", hide_index=True)
     last = log[-1]
-    st.info(f"{last['coupon_id']} · {t(lang, 'f_stage')} {last['stage']}: {t(lang, 'o_' + rlog.outcome(last))}")
+    stage_label = t(lang, "c_stage_" + str(last["stage"]))
+    st.info(f"{last['coupon_id']} · {stage_label}: {t(lang, 'o_' + rlog.outcome(last))}")
     st.markdown(f"**{t(lang, 'log_summary_h')}**")
-    st.dataframe(pd.DataFrame(rlog.summarize(log)), width="stretch", hide_index=True)
+    st.dataframe(_summary_table(log, lang), width="stretch", hide_index=True)
     d1, d2, d3, d4 = st.columns(4)
     with d1: st.download_button(t(lang, "log_csv"), data=rlog.to_csv(log), file_name="nos_coupon_log.csv", mime="text/csv", on_click="ignore")
     with d2: st.download_button(t(lang, "log_json"), data=rlog.to_json(log), file_name="nos_coupon_log.json", mime="application/json", on_click="ignore")

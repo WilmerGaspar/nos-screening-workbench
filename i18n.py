@@ -194,3 +194,45 @@ _V04 = {
 }
 for _lang, _pack in _V04.items():
     T.setdefault(_lang, {}).update(_pack)
+
+# --- v0.4.1: readable labels for the coupon log (codes stay in the CSV). ---
+_V041 = {
+    "es": {
+        "f_optional": "Opcional",
+        "f_optional_note": "Los campos numericos de medicion son opcionales: deja vacio lo que no mediste.",
+        "c_stage_0": "0 · recien depositado", "c_stage_1": "1 · choque rapido", "c_stage_2": "2 · ciclado",
+        "c_tape_test_not_done": "No hecha", "c_tape_test_pass": "Pasa", "c_tape_test_fail": "Falla",
+        "c_spallation_none": "Ninguno", "c_spallation_edge": "Solo en el borde",
+        "c_spallation_partial": "Parcial", "c_spallation_full": "Total",
+        "c_crack_origin_not_checked": "Corte no revisado", "c_crack_origin_none_seen": "No se ven grietas",
+        "c_crack_origin_coating_substrate_interface": "En la interfaz capa / metal base",
+        "c_crack_origin_within_coating": "Dentro de la capa", "c_crack_origin_substrate": "En el metal base",
+        "os_interface_limited": "Limita la interfaz", "os_coating_limited": "Limita la capa",
+        "os_substrate_issue": "Problema del metal base", "os_passed_stage": "Paso la etapa",
+        "os_incomplete": "Incompleto",
+        "col_result": "Resultado", "col_coupons": "Cupones", "col_max_stage": "Etapa maxima",
+        "e_required": "{f}: es obligatorio", "e_choice": "{f}: opcion no valida", "e_number": "{f}: debe ser un numero",
+        "e_range": "{f}: debe estar entre {lo:g} y {hi:g}", "e_whole": "{f}: debe ser un numero entero",
+        "e_cycles_needed": "{f}: es obligatorio en las etapas 1 y 2",
+    },
+    "en": {
+        "f_optional": "Optional",
+        "f_optional_note": "Measurement fields are optional: leave empty what you did not measure.",
+        "c_stage_0": "0 · as deposited", "c_stage_1": "1 · quick shock", "c_stage_2": "2 · cycling",
+        "c_tape_test_not_done": "Not done", "c_tape_test_pass": "Pass", "c_tape_test_fail": "Fail",
+        "c_spallation_none": "None", "c_spallation_edge": "Edge only",
+        "c_spallation_partial": "Partial", "c_spallation_full": "Full",
+        "c_crack_origin_not_checked": "Section not checked", "c_crack_origin_none_seen": "No cracks seen",
+        "c_crack_origin_coating_substrate_interface": "At the coating / base-metal interface",
+        "c_crack_origin_within_coating": "Inside the coating", "c_crack_origin_substrate": "In the base metal",
+        "os_interface_limited": "Interface limits", "os_coating_limited": "Coating limits",
+        "os_substrate_issue": "Base-metal issue", "os_passed_stage": "Passed the stage",
+        "os_incomplete": "Incomplete",
+        "col_result": "Result", "col_coupons": "Coupons", "col_max_stage": "Highest stage",
+        "e_required": "{f}: required", "e_choice": "{f}: not a valid option", "e_number": "{f}: must be a number",
+        "e_range": "{f}: must be between {lo:g} and {hi:g}", "e_whole": "{f}: must be a whole number",
+        "e_cycles_needed": "{f}: required for stages 1 and 2",
+    },
+}
+for _lang, _pack in _V041.items():
+    T.setdefault(_lang, {}).update(_pack)

@@ -80,6 +80,17 @@ def test_json_and_summary_and_email():
     assert "C-02" in body and "interface_limited" in body and len(body.splitlines()) == 3
 
 
+def test_structured_problems_render_in_any_language():
+    probs = rlog.problems(_rec(coupon_id="", porosity_pct=120, stage="1"))
+    codes = {(f, c) for f, c, _ in probs}
+    assert ("coupon_id", "required") in codes and ("porosity_pct", "range") in codes and ("cycles", "cycles_needed") in codes
+    f, c, p = next(x for x in probs if x[1] == "range")
+    assert rlog.render_problem(f, c, p) == "porosity_pct must be between 0 and 100"
+    es = rlog.render_problem(f, c, p, template="{f}: debe estar entre {lo:g} y {hi:g}", label="Porosidad (%)")
+    assert es == "Porosidad (%): debe estar entre 0 y 100"
+    assert rlog.validate(_rec()) == [] and rlog.problems(_rec()) == []
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in tests:
