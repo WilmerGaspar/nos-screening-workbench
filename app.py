@@ -31,6 +31,29 @@ DEFAULT_CONTACT = "wilmergasparespinoza@gmail.com"
 VERDICT_COLOR = {"proceed_to_coupon": "green", "coupon_high_cte_risk": "orange", "coupon_cte_unknown": "orange",
                  "kappa_significant": "red", "process_veto": "red"}
 VERDICT_DOT = {"green": "🟢", "orange": "🟠", "red": "🔴"}
+UI_LANGS = ("es", "en")
+
+def show_df(df, lang, fmt=None, column_config=None):
+    """Screen-only copy: numbers formatted as text and empty cells as "sin dato" / "no data".
+    st.dataframe draws nulls as "None" whatever the Styler says, so the copy holds strings.
+    The CSV downloads are built from the original data elsewhere and keep empty cells."""
+    fmt = fmt or {}
+    na = t(lang, "no_data")
+    view = df.copy()
+    cfg = dict(column_config or {})
+    for col in view.columns:
+        if col in fmt:
+            view[col] = df[col].map(lambda v, f=fmt[col]: na if pd.isna(v) else f.format(v))
+            cfg[col] = {**cfg.get(col, st.column_config.Column()), "alignment": "right"}
+        elif df[col].isna().any():
+            view[col] = df[col].map(lambda v: na if v is None or (isinstance(v, float) and pd.isna(v)) else v)
+    st.dataframe(view, width="stretch", hide_index=True, column_config=cfg)
+
+def _ranking_fmt(lang):
+    f = {t(lang, "d_score"): "{:.4f}", "NOS": "{:.4f}", t(lang, "d_manuf"): "{:.4f}", t(lang, "d_iface"): "{:.4f}",
+         t(lang, "d_dcte"): "{:.1f}", t(lang, "d_kbulk"): "{:.1f}", t(lang, "d_kneed"): "{:.1f}",
+         t(lang, "d_dtc"): "{:.2f}", t(lang, "d_dtt"): "{:.2f}"}
+    return f
 
 def _secret(name, default=""):
     val = os.environ.get(name, "")
@@ -65,7 +88,8 @@ def header(lang):
 
 def sidebar():
     sb = st.sidebar
-    lang = sb.selectbox("Language / Idioma", list(LANGS.keys()), format_func=lambda k: LANGS[k], index=0)
+    # FR/DE stay available for the 4-language PDF ZIP, not as UI languages.
+    lang = sb.selectbox("Language / Idioma", list(UI_LANGS), format_func=lambda k: LANGS[k], index=0)
     sb.header(t(lang, "mission"))
     app_key = sb.selectbox(t(lang, "application"), list(APPLICATIONS.keys()), format_func=lambda k: ui.app_label(lang, k), index=1)
     spec = APPLICATIONS[app_key]; cooling = app_key != "generic_coating"
@@ -251,19 +275,17 @@ def _csv_frame(rows, lang):
     } for r in rows])
 
 def _colcfg(lang):
-    N = st.column_config.NumberColumn
+    C = st.column_config.Column
     return {
-        t(lang, "d_rank"): N(format="%d", width="small"),
-        t(lang, "d_score"): N(format="%.4f", help=t(lang, "h_score")),
-        "NOS": N(format="%.4f"),
-        t(lang, "d_manuf"): N(format="%.4f"),
-        t(lang, "d_iface"): N(format="%.4f", help=t(lang, "h_cte")),
-        t(lang, "d_dcte"): N(format="%.1f", help=t(lang, "h_cte")),
-        t(lang, "d_kbulk"): N(format="%.1f", help=t(lang, "h_kappa")),
-        t(lang, "d_kneed"): N(format="%.1f", help=t(lang, "h_kappa")),
-        t(lang, "d_dtc"): N(format="%.2f", help=t(lang, "h_dtc")),
-        t(lang, "d_dtt"): N(format="%.2f", help=t(lang, "h_dtt")),
-        t(lang, "d_flags"): N(format="%d", help=t(lang, "h_flags")),
+        t(lang, "d_rank"): C(width="small"),
+        t(lang, "d_score"): C(help=t(lang, "h_score")),
+        t(lang, "d_iface"): C(help=t(lang, "h_cte")),
+        t(lang, "d_dcte"): C(help=t(lang, "h_cte")),
+        t(lang, "d_kbulk"): C(help=t(lang, "h_kappa")),
+        t(lang, "d_kneed"): C(help=t(lang, "h_kappa")),
+        t(lang, "d_dtc"): C(help=t(lang, "h_dtc")),
+        t(lang, "d_dtt"): C(help=t(lang, "h_dtt")),
+        t(lang, "d_flags"): C(help=t(lang, "h_flags")),
     }
 
 def table(rows, cooling, lang, cfg, mode):
@@ -272,7 +294,7 @@ def table(rows, cooling, lang, cfg, mode):
         t(lang, "d_verdict"): verdict_label(lang, r.get("verdict"), dot=True),
         t(lang, "d_dcte"): r.get("dcte_max"), t(lang, "d_dtc"): _num(r.get("dt_coat"), ".2f"), t(lang, "d_dtt"): _num(r.get("dt_tim"), ".2f"),
     } for r in rows])
-    st.dataframe(short, width="stretch", hide_index=True, column_config=_colcfg(lang))
+    show_df(short, lang, {k: v for k, v in _ranking_fmt(lang).items() if k in short.columns}, column_config=_colcfg(lang))
     with st.expander(t(lang, "full_table")):
         full = pd.DataFrame([{
             t(lang, "d_rank"): r["rank"], t(lang, "d_phase"): r["formula"], t(lang, "d_score"): r["combined"], "NOS": r["NOS"],
@@ -281,7 +303,7 @@ def table(rows, cooling, lang, cfg, mode):
             t(lang, "d_kneed"): r.get("kappa_needed"), t(lang, "d_dtc"): _num(r.get("dt_coat"), ".2f"),
             t(lang, "d_dtt"): _num(r.get("dt_tim"), ".2f"), t(lang, "d_flags"): len(r.get("flags") or []),
         } for r in rows])
-        st.dataframe(full, width="stretch", hide_index=True, column_config=_colcfg(lang))
+        show_df(full, lang, _ranking_fmt(lang), column_config=_colcfg(lang))
     buf = io.StringIO(); _csv_frame(rows, lang).to_csv(buf, index=False)
     st.markdown(f"**{t(lang, 'downloads')}**")
     c1,c2,c3,c4 = st.columns(4)
@@ -484,7 +506,7 @@ def results_panel(cfg, lang, top_phase):
     a.metric(t(lang, "log_n"), len({r["coupon_id"] for r in log}))
     b.metric(t(lang, "log_iface"), sum(1 for r in log if rlog.outcome(r) == "interface_limited"))
     c.metric(t(lang, "log_pass"), sum(1 for r in log if rlog.outcome(r) == "passed_stage"))
-    st.dataframe(_log_table(log, lang), width="stretch", hide_index=True)
+    show_df(_log_table(log, lang), lang, {t(lang, k): "{:g}" for k in ("f_thickness", "f_porosity", "f_cycles")})
     last = log[-1]
     stage_label = t(lang, "c_stage_" + str(last["stage"]))
     st.info(f"{last['coupon_id']} · {stage_label}: {t(lang, 'o_' + rlog.outcome(last))}")
