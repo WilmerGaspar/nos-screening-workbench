@@ -168,6 +168,22 @@ def table(rows, cooling, lang, cfg, mode):
         else:
             st.caption(verdict_text(lang, "process_veto"))
 
+def email_options(lang, label, subject, body, primary=False):
+    """A mailto: link alone opens a blank tab when the browser has no mail app (e.g. Gmail
+    users on the web), so offer webmail compose links and the text to copy as well."""
+    to, su, bo = quote(_contact()), quote(subject), quote(body)
+    gmail = f"https://mail.google.com/mail/?view=cm&fs=1&to={to}&su={su}&body={bo}"
+    outlook = f"https://outlook.live.com/mail/0/deeplink/compose?to={to}&subject={su}&body={bo}"
+    mailto = f"mailto:{_contact()}?subject={su}&body={bo}"
+    c1, c2, c3 = st.columns(3)
+    with c1: st.link_button(f"{label} · Gmail", gmail, type="primary" if primary else "secondary", width="stretch")
+    with c2: st.link_button(f"{label} · Outlook", outlook, width="stretch")
+    with c3: st.link_button(t(lang, "email_app"), mailto, width="stretch")
+    with st.expander(t(lang, "email_copy")):
+        st.markdown(f"{t(lang, 'email_to')}: **{_contact()}**")
+        st.code(subject, language=None)
+        st.code(body, language=None)
+
 def request_panel(rows, cfg, lang):
     st.subheader(t(lang, "request_h"))
     phase = pick_phase(rows) or {}
@@ -184,8 +200,7 @@ def request_panel(rows, cfg, lang):
         "My real stack / what fails today:", "",
         "Company / role (optional):", "",
     ])
-    url = f"mailto:{_contact()}?subject={quote(subject)}&body={quote(body)}"
-    st.link_button(t(lang, "request_btn"), url, type="primary")
+    email_options(lang, t(lang, "request_btn"), subject, body, primary=True)
     st.caption(t(lang, "request_caption"))
 
 def detail(rows, lang):
@@ -303,18 +318,17 @@ def results_panel(cfg, lang, top_phase):
     st.info(f"{last['coupon_id']} · {t(lang, 'f_stage')} {last['stage']}: {t(lang, 'o_' + rlog.outcome(last))}")
     st.markdown(f"**{t(lang, 'log_summary_h')}**")
     st.dataframe(pd.DataFrame(rlog.summarize(log)), width="stretch", hide_index=True)
-    d1, d2, d3, d4 = st.columns(4)
+    d1, d2, d4 = st.columns(3)
     with d1: st.download_button(t(lang, "log_csv"), data=rlog.to_csv(log), file_name="nos_coupon_log.csv", mime="text/csv", on_click="ignore")
     with d2: st.download_button(t(lang, "log_json"), data=rlog.to_json(log), file_name="nos_coupon_log.json", mime="application/json", on_click="ignore")
-    with d3:
-        body = "Hi Wilmer,\n\nCoupon results from the NOS log:\n\n" + rlog.email_summary(log) + "\n\n(CSV and cross-section photos attached.)\n"
-        st.link_button(t(lang, "log_send"), f"mailto:{_contact()}?subject={quote('NOS coupon results')}&body={quote(body)}")
-        st.caption(t(lang, "log_send_caption"))
     with d4:
         if st.button(t(lang, "log_undo")):
             st.session_state["coupon_log"] = log[:-1]
             st.session_state["log_id_stale"] = True
             st.rerun()
+    body = "Hi Wilmer,\n\nCoupon results from the NOS log:\n\n" + rlog.email_summary(log) + "\n\n(CSV and cross-section photos attached.)\n"
+    email_options(lang, t(lang, "log_send"), "NOS coupon results", body)
+    st.caption(t(lang, "log_send_caption"))
 
 def screening_view(cfg, lang):
     if not st.session_state.get("nos_ran"):
