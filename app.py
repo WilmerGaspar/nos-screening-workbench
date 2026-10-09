@@ -17,10 +17,11 @@ from i18n import LANGS, t, verdict_text
 from report_pdf import build_pdf, build_zip_all_langs
 from coupon_pdf import build_coupon_pdf, pick_phase
 from stack_sites import DEFAULT_SITE, SITES, site_note, site_spec, tim_ref
+import results as rlog
 
 ROOT = Path(__file__).resolve().parent
 LOGO = ROOT / "assets" / "logo.jpg"
-VERSION = "v0.3"
+VERSION = "v0.4"
 st.set_page_config(page_title="NOS Screening Workbench", page_icon="◆", layout="wide")
 PROCESS_OPTIONS = {"PVD (sputter / arc)": "pvd", "Thermal spray / HVOF": "thermal_spray", "Electroplating": "electroplating"}
 TIER_COLORS = {"Experimentally verified": "#0f766e", "Partially backed": "#ca8a04", "Well-calculated (DFT)": "#1d4ed8", "Exploratory": "#6b7280"}
@@ -90,6 +91,11 @@ def sidebar():
     cleaned = [e.strip() for e in sys_key.split(",") if e.strip()]
     return {"elements": cleaned, "exact": exact, "process": PROCESS_OPTIONS[process_label], "process_label": process_label, "temp": temp, "w_nos": w_nos, "weights": weights, "cooling": cooling, "application": app_key, "substrate": substrate, "die": die, "thickness_um": thickness_um, "area_cm2": area_cm2, "power_w": power_w, "t_sink_c": t_sink_c, "budget": 0.05, "tim_kappa": tim_kappa, "tim_um": tim_um, "share_max": share_pct / 100.0, "live": source == t(lang, "live") and has_key, "mp_key": mp_key, "max_results": max_results, "run": run, "standard": std_key, "lang": lang, "site": site_key}
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_live(elements, exact, max_results, _api_key):
+    # One Materials Project query per (system, exact, max) per hour; the key is not hashed.
+    return run_live(list(elements), api_key=_api_key, max_results=max_results, exact_chemsys=exact)
+
 def screen(cfg):
     lang = cfg.get("lang", "en")
     token = ",".join(cfg.get("elements") or []).replace(" ", "").lower()
@@ -97,7 +103,7 @@ def screen(cfg):
         st.warning(t(lang, "empty")); return None, None
     if cfg["live"]:
         try:
-            cands = run_live(cfg["elements"], api_key=cfg.get("mp_key"), max_results=cfg["max_results"], exact_chemsys=cfg["exact"]); mode = "materials_project"
+            cands = _cached_live(tuple(cfg["elements"]), cfg["exact"], cfg["max_results"], cfg.get("mp_key")); mode = "materials_project"
         except Exception as exc:
             st.error(str(exc)); cands = run_demo(cfg["elements"], exact_chemsys=cfg["exact"]); mode = "demo_fallback"
     else:
@@ -206,12 +212,97 @@ def standards_panel(std_key, lang):
     st.dataframe(pd.DataFrame(spec["tests"]), width="stretch", hide_index=True)
     st.info(spec["next_step"])
 
-def main():
-    cfg = sidebar(); lang = cfg.get("lang","es"); header(lang)
-    if not cfg["run"]:
-        st.info(t(lang,"empty")); tim_panel(cfg, lang); standards_panel(cfg["standard"], lang); return
+def _opt(label, lang, **kw):
+    return st.number_input(label, value=None, placeholder=t(lang, "f_optional"), **kw)
+
+def results_panel(cfg, lang, top_phase):
+    st.subheader(t(lang, "log_h"))
+    st.caption(t(lang, "log_caption"))
+    log = st.session_state.setdefault("coupon_log", [])
+
+    up = st.file_uploader(t(lang, "log_upload"), type=["csv"], key="log_upload")
+    if up is not None:
+        sig = (up.name, up.size)
+        if st.session_state.get("log_upload_sig") != sig:
+            loaded, problems = rlog.from_csv(up.getvalue().decode("utf-8", errors="replace"))
+            st.session_state["coupon_log"] = log = loaded
+            st.session_state["log_upload_sig"] = sig
+            st.session_state["log_upload_problems"] = problems
+        st.success(t(lang, "log_loaded").format(n=len(log)))
+        problems = st.session_state.get("log_upload_problems") or []
+        if problems:
+            st.warning(t(lang, "log_problems") + "\n" + "\n".join(f"- {p}" for p in problems[:20]))
+
+    with st.form("coupon_form", clear_on_submit=False):
+        st.markdown(f"**{t(lang, 'log_form_h')}**")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            coupon_id = st.text_input(t(lang, "f_coupon_id"), value=f"C-{len(log) + 1:02d}")
+            coating = st.text_input(t(lang, "f_coating"), value=(top_phase or {}).get("formula", ""))
+            process = st.selectbox(t(lang, "f_process"), list(PROCESS_OPTIONS.keys()) + ["Arc / flame wire spray", "Other"],
+                                   index=list(PROCESS_OPTIONS.keys()).index(cfg.get("process_label")) if cfg.get("process_label") in PROCESS_OPTIONS else 0)
+            shop = st.text_input(t(lang, "f_shop"))
+            subs = list(SUBSTRATES.keys())
+            substrate = st.selectbox(t(lang, "f_substrate"), subs, index=subs.index(cfg["substrate"]) if cfg.get("substrate") in subs else 0)
+            target = st.number_input(t(lang, "f_target"), min_value=0.0, max_value=5000.0, value=float(cfg.get("thickness_um") or 20.0), step=5.0)
+        with c2:
+            stage = st.radio(t(lang, "f_stage"), list(rlog.STAGES), horizontal=True)
+            tape = st.selectbox(t(lang, "f_tape"), list(rlog.TAPE))
+            spall = st.selectbox(t(lang, "f_spall"), list(rlog.SPALLATION))
+            crack = st.selectbox(t(lang, "f_crack"), list(rlog.CRACK_ORIGIN))
+            cycles = _opt(t(lang, "f_cycles"), lang, min_value=0, step=1)
+            peak = _opt(t(lang, "f_peak"), lang, min_value=-60.0, max_value=1500.0, step=5.0)
+        with c3:
+            thick = _opt(t(lang, "f_thickness"), lang, min_value=0.0, max_value=5000.0, step=1.0)
+            poro = _opt(t(lang, "f_porosity"), lang, min_value=0.0, max_value=100.0, step=0.5)
+            imc = _opt(t(lang, "f_imc"), lang, min_value=0.0, max_value=5000.0, step=0.5)
+            rc = _opt(t(lang, "f_rc"), lang, min_value=0.0, step=0.01)
+            notes = st.text_area(t(lang, "f_notes"), height=90)
+        share = st.checkbox(t(lang, "f_share"), value=False)
+        submitted = st.form_submit_button(t(lang, "log_add"), type="primary")
+
+    if submitted:
+        rec = rlog.new_record(coupon_id=coupon_id, coating=coating, process=process, shop=shop, substrate=substrate,
+                              target_thickness_um=target, stage=stage, thickness_um=thick, porosity_pct=poro,
+                              tape_test=tape, spallation=spall, crack_origin=crack, cycles=cycles, peak_temp_c=peak,
+                              imc_thickness_um=imc, contact_resistance_mohm=rc, notes=notes, share_anonymized=share)
+        new_log, errors = rlog.add(log, rec)
+        if errors:
+            st.error("\n".join(f"- {e}" for e in errors))
+        else:
+            st.session_state["coupon_log"] = log = new_log
+            st.success(t(lang, "log_added").format(id=coupon_id, stage=stage, outcome=rlog.outcome(new_log[-1])))
+
+    if not log:
+        st.info(t(lang, "log_empty"))
+        return
+    a, b, c = st.columns(3)
+    a.metric(t(lang, "log_n"), len({r["coupon_id"] for r in log}))
+    b.metric(t(lang, "log_iface"), sum(1 for r in log if rlog.outcome(r) == "interface_limited"))
+    c.metric(t(lang, "log_pass"), sum(1 for r in log if rlog.outcome(r) == "passed_stage"))
+    df = pd.DataFrame([{**r, "outcome": rlog.outcome(r)} for r in log])
+    st.dataframe(df, width="stretch", hide_index=True)
+    last = log[-1]
+    st.info(f"{last['coupon_id']} · {t(lang, 'f_stage')} {last['stage']}: {t(lang, 'o_' + rlog.outcome(last))}")
+    st.markdown(f"**{t(lang, 'log_summary_h')}**")
+    st.dataframe(pd.DataFrame(rlog.summarize(log)), width="stretch", hide_index=True)
+    d1, d2, d3, d4 = st.columns(4)
+    with d1: st.download_button(t(lang, "log_csv"), data=rlog.to_csv(log), file_name="nos_coupon_log.csv", mime="text/csv", on_click="ignore")
+    with d2: st.download_button(t(lang, "log_json"), data=rlog.to_json(log), file_name="nos_coupon_log.json", mime="application/json", on_click="ignore")
+    with d3:
+        body = "Hi Wilmer,\n\nCoupon results from the NOS log:\n\n" + rlog.email_summary(log) + "\n\n(CSV and cross-section photos attached.)\n"
+        st.link_button(t(lang, "log_send"), f"mailto:{_contact()}?subject={quote('NOS coupon results')}&body={quote(body)}")
+        st.caption(t(lang, "log_send_caption"))
+    with d4:
+        if st.button(t(lang, "log_undo")):
+            st.session_state["coupon_log"] = log[:-1]
+            st.rerun()
+
+def screening_view(cfg, lang):
+    if not st.session_state.get("nos_ran"):
+        st.info(t(lang,"empty")); tim_panel(cfg, lang); standards_panel(cfg["standard"], lang); return None
     rows, mode = screen(cfg)
-    if rows is None: return
+    if rows is None: return None
     st.success(f"{len(rows)} · {APPLICATIONS[cfg['application']]['label']} · {cfg['substrate']} · {site_spec(cfg.get('site'), lang)['label']}")
     metrics(rows, mode, cfg["cooling"], lang)
     if cfg["cooling"]: stability_panel(rows, lang)
@@ -221,6 +312,18 @@ def main():
     st.subheader(t(lang,"verdict_h")); detail(rows, lang)
     tim_panel(cfg, lang)
     standards_panel(cfg["standard"], lang)
+    return rows
+
+def main():
+    cfg = sidebar(); lang = cfg.get("lang","es"); header(lang)
+    if cfg["run"]:
+        # After the first run, results stay on screen and follow every sidebar change.
+        st.session_state["nos_ran"] = True
+    tab_screen, tab_log = st.tabs([t(lang, "tab_screen"), t(lang, "tab_log")])
+    with tab_screen:
+        rows = screening_view(cfg, lang)
+    with tab_log:
+        results_panel(cfg, lang, pick_phase(rows) if rows else None)
     st.caption(t(lang,"disclaimer") + "  ·  (c) 2026 Wilmer Gaspar Espinoza Castillo")
 
 if __name__ == "__main__":

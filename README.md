@@ -53,7 +53,15 @@ y un TIM de 50 µm a 4 W/m·K, NiAl aporta ~0.11 K frente a ~6.25 K del TIM. Por
 - **Ficha de cupón en dos etapas** (choque rápido comparativo + ciclado representativo con checkpoints).
 - **Botón "Solicitar estudio"** que abre un correo con la configuración del usuario.
 
-Correr pruebas: `python3 tests/test_scoring.py && python3 tests/test_reliability.py`
+## Registro de cupones (v0.4)
+
+Pestaña "Registro de cupones": una fila por cupón y por etapa (0, 1, 2) con espesor, porosidad,
+prueba de cinta, desprendimiento, origen de la grieta, ciclos, espesor de intermetálico y
+resistencia de contacto. La app lee cada fila con la regla de la ficha de cupón (sección D) y
+no inventa umbrales numéricos. Los datos viven en la sesión: se descargan en CSV/JSON y se
+vuelven a subir para continuar. Botón para enviar el resumen por correo.
+
+Correr pruebas: `python3 tests/test_scoring.py && python3 tests/test_reliability.py && python3 tests/test_results.py`
 
 ## Posicionamiento
 
