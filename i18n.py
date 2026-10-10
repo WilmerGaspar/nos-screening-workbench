@@ -456,3 +456,27 @@ _V05 = {
 }
 for _lang, _pack in _V05.items():
     T.setdefault(_lang, {}).update(_pack)
+
+# --- v0.6: "Rate this tool" evaluation (texts approved as written). ---
+_V06 = {
+    "es": {
+        "eval_btn": "Evalúa esta herramienta (2 min)",
+        "eval_h": "Tu evaluación",
+        "eval_intro": "Dime si la recomendación es correcta para tu caso y qué falta. Con eso mejoro la herramienta.",
+        "eval_open_form": "Abrir el formulario",
+        "eval_setup": "Tu configuración (cópiala en el formulario):",
+        "eval_caption_form": "El formulario es de Google Forms. La app no guarda nada.",
+        "eval_caption_email": "Abre un correo con 5 preguntas y tu configuración. La app no guarda nada.",
+    },
+    "en": {
+        "eval_btn": "Rate this tool (2 min)",
+        "eval_h": "Your evaluation",
+        "eval_intro": "Tell me if the recommendation is right for your case and what is missing. That is how the tool gets better.",
+        "eval_open_form": "Open the form",
+        "eval_setup": "Your setup (paste it in the form):",
+        "eval_caption_form": "The form is a Google Form. The app stores nothing.",
+        "eval_caption_email": "Opens an email with 5 questions and your setup. The app stores nothing.",
+    },
+}
+for _lang, _pack in _V06.items():
+    T.setdefault(_lang, {}).update(_pack)

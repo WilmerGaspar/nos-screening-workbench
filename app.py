@@ -19,6 +19,7 @@ from coupon_pdf import build_coupon_pdf, pick_phase
 from stack_sites import DEFAULT_SITE, SITES, site_note, site_spec, tim_ref
 import results as rlog
 import ui_text as ui
+import feedback
 
 ROOT = Path(__file__).resolve().parent
 LOGO = ROOT / "assets" / "logo.jpg"
@@ -233,6 +234,8 @@ def recommendation_card(rows, cfg, lang, mode):
                 coupon_button(cfg, rows, lang, key="dl_coupon_card")
                 with st.popover(t(lang, "request_btn"), width="stretch"):
                     request_panel(rows, cfg, lang)
+                with st.popover(t(lang, "eval_btn"), width="stretch", key="eval_pop"):
+                    eval_panel(rows, cfg, lang, key="eval_pop", short=True)
         if cfg["cooling"]:
             line = stability_line(rows, lang)
             if line: st.info(line)
@@ -313,9 +316,11 @@ def table(rows, cooling, lang, cfg, mode):
     with c3: st.download_button(t(lang,"pdf_all"), data=_report_zip(pcfg, rows, mode), file_name="nos_reports_es_en_fr_de.zip", mime="application/zip", on_click="ignore", width="stretch")
     with c4: coupon_button(cfg, rows, lang, key="dl_coupon_row")
 
-def email_options(lang, label, subject, body, primary=False, short=False):
+def email_options(lang, label, subject, body, primary=False, short=False, key=None):
     """A mailto: link alone opens a blank tab when the browser has no mail app (e.g. Gmail
-    users on the web), so offer webmail compose links and the text to copy as well."""
+    users on the web), so offer webmail compose links and the text to copy as well.
+    key: prefix for widget keys when the same block appears twice on a page."""
+    k = (lambda s: f"{key}_{s}") if key else (lambda s: None)
     to, su, bo = quote(_contact()), quote(subject), quote(body)
     gmail = f"https://mail.google.com/mail/?view=cm&fs=1&to={to}&su={su}&body={bo}"
     outlook = f"https://outlook.live.com/mail/0/deeplink/compose?to={to}&subject={su}&body={bo}"
@@ -323,10 +328,10 @@ def email_options(lang, label, subject, body, primary=False, short=False):
     # In the narrow popover the three buttons go one under the other.
     c1, c2, c3 = (st.container(), st.container(), st.container()) if short else st.columns(3)
     g_label, o_label = (t(lang, "open_gmail"), t(lang, "open_outlook")) if short else (f"{label} · Gmail", f"{label} · Outlook")
-    with c1: st.link_button(g_label, gmail, type="primary" if primary else "secondary", width="stretch")
-    with c2: st.link_button(o_label, outlook, width="stretch")
-    with c3: st.link_button(t(lang, "email_app"), mailto, width="stretch")
-    with st.expander(t(lang, "email_copy")):
+    with c1: st.link_button(g_label, gmail, type="primary" if primary else "secondary", width="stretch", key=k("gmail"))
+    with c2: st.link_button(o_label, outlook, width="stretch", key=k("outlook"))
+    with c3: st.link_button(t(lang, "email_app"), mailto, width="stretch", key=k("mailto"))
+    with st.expander(t(lang, "email_copy"), key=k("copy")):
         st.markdown(f"{t(lang, 'email_to')}: **{_contact()}**")
         st.code(subject, language=None)
         st.code(body, language=None)
@@ -339,16 +344,31 @@ def request_panel(rows, cfg, lang):
     body = "\n".join([
         "Hi Wilmer,", "",
         "I ran the NOS Screening Workbench and would like a study / coupon for my case.", "",
-        f"Application: {APPLICATIONS[cfg['application']]['label']}",
-        f"Layer site: {site_en}",
-        f"Process: {cfg.get('process_label')} - {cfg.get('thickness_um')} um on {cfg.get('substrate')}",
-        f"Service T: {cfg.get('temp')} C - TIM: {cfg.get('tim_um')} um at {cfg.get('tim_kappa')} W/mK",
-        f"Top phase in my run: {phase.get('formula', '-')} ({phase.get('verdict', '-')})", "",
+        *feedback.setup_lines(cfg, phase), "",
         "My real stack / what fails today:", "",
         "Company / role (optional):", "",
     ])
     email_options(lang, t(lang, "request_btn"), subject, body, primary=True, short=True)
     st.caption(t(lang, "request_caption"))
+
+def eval_panel(rows, cfg, lang, key, short):
+    """'Rate this tool': a Google Form when NOS_EVAL_FORM_URL is an https:// link, else e-mail.
+    Nothing is stored by the app."""
+    st.markdown(f"**{t(lang, 'eval_h')}**")
+    st.markdown(t(lang, "eval_intro"))
+    phase = pick_phase(rows) if rows else None
+    lines = feedback.setup_lines(cfg, phase)
+    url = feedback.form_url(_secret("NOS_EVAL_FORM_URL"))
+    if url:
+        st.link_button(t(lang, "eval_open_form"), url, type="primary", key=f"{key}_form")
+        st.markdown(t(lang, "eval_setup"))
+        st.code("\n".join(lines), language=None)
+        st.caption(t(lang, "eval_caption_form"))
+    else:
+        site_en = site_spec(cfg.get("site"), "en")["label"]
+        subject = feedback.eval_subject((phase or {}).get("formula", ""), site_en)
+        email_options(lang, t(lang, "eval_btn"), subject, feedback.eval_body(lines), primary=True, short=short, key=key)
+        st.caption(t(lang, "eval_caption_email"))
 
 def detail(rows, lang):
     labels = [f"{r['rank']:02d} · {r['formula']} ({r['combined']:.3f})" for r in rows[:40]]
@@ -545,6 +565,8 @@ def main():
     tab_screen, tab_log = st.tabs([t(lang, "tab_screen"), t(lang, "tab_log")])
     with tab_screen:
         rows = screening_view(cfg, lang)
+        with st.container(border=True, key="eval_box"):
+            eval_panel(rows, cfg, lang, key="eval_box", short=False)
     with tab_log:
         results_panel(cfg, lang, pick_phase(rows) if rows else None)
     st.caption(t(lang,"disclaimer") + "  ·  (c) 2026 Wilmer Gaspar Espinoza Castillo")
