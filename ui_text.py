@@ -33,6 +33,7 @@ _SYSTEMS = {
         "Co,Ti": "Co-Ti  ·  sin κ citable",
         "Zn,Fe": "Zn-Fe  ·  galvanizado",
         "Fe,Cr": "Fe-Cr  ·  sin κ citable",
+        "Al,Cu": "Al-Cu  ·  intermetálicos de la interfaz Al/Cu (Nazarahari 2026)",
     },
     "en": {
         "cited7": "7 cited phases  ·  full thermal verdict",
@@ -46,6 +47,19 @@ _SYSTEMS = {
         "Co,Ti": "Co-Ti  ·  no citable κ",
         "Zn,Fe": "Zn-Fe  ·  galvanized",
         "Fe,Cr": "Fe-Cr  ·  no citable κ",
+        "Al,Cu": "Al-Cu  ·  Al/Cu interface intermetallics (Nazarahari 2026)",
+    },
+}
+
+# Caption under the chemical-system selector; only systems listed here get one.
+_SYSTEM_NOTES = {
+    "es": {
+        "Al,Cu": "Referencia: estas fases crecen en las uniones Al/Cu (por ejemplo, hilos de Al sobre Cu). "
+                 "Se muestran por su κ medida, no como recubrimientos para depositar.",
+    },
+    "en": {
+        "Al,Cu": "Reference: these phases grow at Al/Cu joints (for example Al wire on Cu). "
+                 "They are shown for their measured κ, not as coatings to deposit.",
     },
 }
 
@@ -164,6 +178,11 @@ def app_blurb(lang, key):
 def system_label(lang, key):
     fallback = next(s["label"] for s in DEMO_SYSTEMS if s["key"] == key)
     return _SYSTEMS.get(lang, _SYSTEMS["en"]).get(key, fallback)
+
+
+def system_note(lang, key):
+    """Caption shown under the system selector, or None when the system has no note."""
+    return _SYSTEM_NOTES.get(lang, _SYSTEM_NOTES["en"]).get(key)
 
 
 def process_label(lang, key):

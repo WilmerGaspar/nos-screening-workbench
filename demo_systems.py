@@ -10,5 +10,6 @@ DEMO_SYSTEMS = [
     {"key": "Co,Ti", "label": "Co-Ti  ·  sin k citable"},
     {"key": "Zn,Fe", "label": "Zn-Fe  ·  galvanizado"},
     {"key": "Fe,Cr", "label": "Fe-Cr  ·  sin k citable"},
+    {"key": "Al,Cu", "label": "Al-Cu  ·  intermetálicos de la interfaz Al/Cu (Nazarahari 2026)"},
 ]
 CITED_PHASES = ["NiAl", "Ni3Al", "CoAl", "FeAl", "FeTi", "NiGa", "Ni3Ga"]

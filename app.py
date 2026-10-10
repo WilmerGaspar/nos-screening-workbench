@@ -101,6 +101,9 @@ def sidebar():
     keys = [s["key"] for s in DEMO_SYSTEMS]
     default_idx = keys.index("cited7") if "cited7" in keys else 0
     sys_key = sb.selectbox(t(lang, "system"), keys, index=default_idx, format_func=lambda k: ui.system_label(lang, k), help=t(lang, "h_system"))
+    sys_note = ui.system_note(lang, sys_key)
+    if sys_note:
+        sb.caption(sys_note)
     process_label = sb.selectbox(t(lang, "process"), list(PROCESS_OPTIONS.keys()), format_func=lambda k: ui.process_label(lang, k))
     substrate = sb.selectbox(t(lang, "substrate"), list(SUBSTRATES.keys()), index=list(SUBSTRATES.keys()).index(spec["default_substrate"]))
     thickness_um = sb.slider(t(lang, "thickness"), 1, 200, 20, 1, help=t(lang, "h_thickness"))

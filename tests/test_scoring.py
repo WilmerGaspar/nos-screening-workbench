@@ -115,6 +115,21 @@ def test_stack_no_invented_kappa():
     assert stack.verdict == "missing_thermal_data"
 
 
+def test_alcu_system_returns_the_four_measured_phases():
+    from demo_systems import CITED_PHASES, DEMO_SYSTEMS
+    from pipeline import DEFAULTS, evaluate_candidates
+    assert "Al,Cu" in [s["key"] for s in DEMO_SYSTEMS]
+    elements = [e.strip() for e in "Al,Cu".split(",")]  # same split as the app sidebar
+    rows = evaluate_candidates(run_demo(elements, exact_chemsys=True), dict(DEFAULTS))
+    kappa = {r["formula"]: r["kappa_wm_k"] for r in rows}
+    assert kappa == {"Al4Cu9": 38.6, "Al2Cu3": 25.9, "AlCu": 73.4, "Al2Cu": 62.0}
+    assert all("DOI 10.1002/adem.202501357" in r["thermal_citation"] for r in rows)
+    # The "7 cited phases" preset stays as it was.
+    seven = ["NiAl", "Ni3Al", "CoAl", "FeAl", "FeTi", "NiGa", "Ni3Ga"]
+    assert CITED_PHASES == seven
+    assert sorted(r["formula"] for r in run_demo(["cited7"])) == sorted(seven)
+
+
 if __name__ == "__main__":
     tests = [
         test_stability_monotone,
@@ -130,6 +145,7 @@ if __name__ == "__main__":
         test_r_coat_nial_20um_1cm2,
         test_r_coat_feal_over_budget_if_thick,
         test_stack_no_invented_kappa,
+        test_alcu_system_returns_the_four_measured_phases,
     ]
     for fn in tests:
         fn()

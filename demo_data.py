@@ -25,6 +25,16 @@ DEMO_CANDIDATES: List[Dict] = [
     {"material_id": "demo-Ni3Ti", "formula": "Ni3Ti", "composition": {"Ni": 3, "Ti": 1}, "e_above_hull": 0.0, "theoretical": False, "has_icsd": True, "flagged_gnome": False, "bulk_modulus": 175.0, "shear_modulus": 85.0, "source": "demo"},
     {"material_id": "demo-exploratory-Al2Fe", "formula": "Al2Fe", "composition": {"Al": 2, "Fe": 1}, "e_above_hull": 0.12, "theoretical": True, "has_icsd": False, "flagged_gnome": True, "bulk_modulus": None, "shear_modulus": None, "source": "demo"},
     {"material_id": "demo-WAl", "formula": "WAl", "composition": {"W": 1, "Al": 1}, "e_above_hull": 0.08, "theoretical": True, "has_icsd": False, "flagged_gnome": False, "bulk_modulus": 200.0, "shear_modulus": 140.0, "source": "demo"},
+    # Al-Cu interface intermetallics with measured kappa (thermal.py, Nazarahari 2026). Not in the cited7 preset.
+    # Materials Project fields are still None: not fetched yet (Materials Project was not reachable).
+    # Al4Cu9 (gamma1): mp-id pending
+    {"material_id": "demo-Al4Cu9", "formula": "Al4Cu9", "composition": {"Al": 4, "Cu": 9}, "e_above_hull": None, "theoretical": None, "has_icsd": None, "flagged_gnome": False, "bulk_modulus": None, "shear_modulus": None, "source": "demo"},
+    # Al2Cu3 (delta): mp-id pending
+    {"material_id": "demo-Al2Cu3", "formula": "Al2Cu3", "composition": {"Al": 2, "Cu": 3}, "e_above_hull": None, "theoretical": None, "has_icsd": None, "flagged_gnome": False, "bulk_modulus": None, "shear_modulus": None, "source": "demo"},
+    # AlCu (eta2): mp-id pending
+    {"material_id": "demo-AlCu", "formula": "AlCu", "composition": {"Al": 1, "Cu": 1}, "e_above_hull": None, "theoretical": None, "has_icsd": None, "flagged_gnome": False, "bulk_modulus": None, "shear_modulus": None, "source": "demo"},
+    # Al2Cu (theta): mp-id pending
+    {"material_id": "demo-Al2Cu", "formula": "Al2Cu", "composition": {"Al": 2, "Cu": 1}, "e_above_hull": None, "theoretical": None, "has_icsd": None, "flagged_gnome": False, "bulk_modulus": None, "shear_modulus": None, "source": "demo"},
 ]
 
 def matches_elements(composition, wanted, exact_chemsys):
