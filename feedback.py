@@ -25,7 +25,9 @@ def setup_lines(cfg: Dict, phase: Optional[Dict]) -> List[str]:
 
 def form_url(raw) -> str:
     """Only an https:// address is used as the form link; anything else (empty, http://,
-    javascript:, ...) gives "" so the app falls back to e-mail."""
+    javascript:, ...) gives "" so the app falls back to e-mail. Surrounding spaces (easy to
+    paste into Secrets by accident) are removed first."""
+    raw = raw.strip() if isinstance(raw, str) else raw
     if isinstance(raw, str) and raw.startswith("https://"):
         return raw
     return ""

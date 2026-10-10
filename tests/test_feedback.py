@@ -86,8 +86,13 @@ def test_eval_subject():
 
 def test_form_url_accepts_only_https():
     assert feedback.form_url("https://forms.gle/x") == "https://forms.gle/x"
-    for bad in ("", "http://x", "javascript:alert(1)", None, " https://forms.gle/x", "HTTPS://forms.gle/x", "data:text/html,x"):
+    for bad in ("", "   ", "http://x", " http://x ", "javascript:alert(1)", None, "HTTPS://forms.gle/x", "data:text/html,x"):
         assert feedback.form_url(bad) == "", bad
+
+
+def test_form_url_strips_spaces_pasted_into_secrets():
+    assert feedback.form_url(" https://forms.gle/x ") == "https://forms.gle/x"
+    assert feedback.form_url("\thttps://forms.gle/x\n") == "https://forms.gle/x"
 
 
 def test_setup_lines_match_the_old_request_lines():

@@ -333,8 +333,8 @@ def email_options(lang, label, subject, body, primary=False, short=False, key=No
     with c3: st.link_button(t(lang, "email_app"), mailto, width="stretch", key=k("mailto"))
     with st.expander(t(lang, "email_copy"), key=k("copy")):
         st.markdown(f"{t(lang, 'email_to')}: **{_contact()}**")
-        st.code(subject, language=None)
-        st.code(body, language=None)
+        st.code(subject, language=None, wrap_lines=True)
+        st.code(body, language=None, wrap_lines=True)
 
 def request_panel(rows, cfg, lang):
     st.markdown(f"**{t(lang, 'request_h')}**")
@@ -362,7 +362,7 @@ def eval_panel(rows, cfg, lang, key, short):
     if url:
         st.link_button(t(lang, "eval_open_form"), url, type="primary", key=f"{key}_form")
         st.markdown(t(lang, "eval_setup"))
-        st.code("\n".join(lines), language=None)
+        st.code("\n".join(lines), language=None, wrap_lines=True)
         st.caption(t(lang, "eval_caption_form"))
     else:
         site_en = site_spec(cfg.get("site"), "en")["label"]
