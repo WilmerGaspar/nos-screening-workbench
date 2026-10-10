@@ -115,6 +115,26 @@ def test_stack_no_invented_kappa():
     assert stack.verdict == "missing_thermal_data"
 
 
+def test_vrh_reads_the_dict_that_current_mp_api_returns():
+    from nos_score import _vrh
+    # Test inputs only (not material data): the shape mp-api 0.46 / emmet-core 0.87 return.
+    assert _vrh({"voigt": 101.0, "reuss": 99.0, "vrh": 100.0}) == 100.0
+    assert _vrh({"voigt": 101.0, "reuss": 99.0}) is None
+
+
+def test_vrh_reads_an_object_with_a_vrh_attribute():
+    from types import SimpleNamespace
+    from nos_score import _vrh
+    assert _vrh(SimpleNamespace(voigt=101.0, reuss=99.0, vrh=100.0)) == 100.0
+    assert _vrh(SimpleNamespace(voigt=101.0)) is None
+
+
+def test_vrh_none_stays_none():
+    from nos_score import _vrh
+    assert _vrh(None) is None
+    assert _vrh({}) is None
+
+
 if __name__ == "__main__":
     tests = [
         test_stability_monotone,
@@ -130,6 +150,9 @@ if __name__ == "__main__":
         test_r_coat_nial_20um_1cm2,
         test_r_coat_feal_over_budget_if_thick,
         test_stack_no_invented_kappa,
+        test_vrh_reads_the_dict_that_current_mp_api_returns,
+        test_vrh_reads_an_object_with_a_vrh_attribute,
+        test_vrh_none_stays_none,
     ]
     for fn in tests:
         fn()
