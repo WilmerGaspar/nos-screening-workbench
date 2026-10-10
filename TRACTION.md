@@ -25,7 +25,7 @@ Use Streamlit as the *demo*, not as the company.
 2. https://share.streamlit.io → New app
 3. Main file: `app.py`
 4. Python packages: `requirements-cloud.txt` (no pymatgen; demo offline only)
-5. You get `https://xxxxx.streamlit.app`
+5. You get `https://nos-screening-workbench-3yaemv6hhsrguvdx89geww.streamlit.app/`
 
 Script of the 3-minute demo:
 
