@@ -15,6 +15,19 @@ DEMO_SYSTEMS = [
 CITED_PHASES = ["NiAl", "Ni3Al", "CoAl", "FeAl", "FeTi", "NiGa", "Ni3Ga"]
 
 
+REFERENCE_TIER = "Measured (reference)"
+
+
+def shown_tier(row, reference):
+    """Evidence label the app shows for a row. In a reference system, a demo row with a cited measured
+    kappa is "Measured (reference)" (display only; NOS, score and order are not changed). Materials
+    Project rows keep their own tier: kappa is matched by composition, so a live polymorph is not
+    necessarily the measured phase."""
+    if reference and row.get("source") == "demo" and row.get("kappa_wm_k") is not None:
+        return REFERENCE_TIER
+    return row["tier"]
+
+
 def is_reference(key):
     """Reference systems: measured phases shown for their kappa, not coatings to deposit.
     The app shows no recommendation card, coupon sheet, study request or rank stability for them."""

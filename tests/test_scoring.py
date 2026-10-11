@@ -246,6 +246,17 @@ def test_alcu_shows_measured_reference_never_exploratory():
         assert _map(at) == ([(good, 4)], True), lang
 
 
+def test_measured_reference_label_only_for_cited_demo_rows():
+    from demo_systems import REFERENCE_TIER, shown_tier
+    demo = {"source": "demo", "kappa_wm_k": 25.9, "tier": "Exploratory"}
+    live = {"source": "materials_project", "kappa_wm_k": 73.4, "tier": "Exploratory"}  # polymorph matched by composition
+    no_k = {"source": "demo", "kappa_wm_k": None, "tier": "Exploratory"}
+    assert shown_tier(demo, True) == REFERENCE_TIER == "Measured (reference)"
+    assert shown_tier(live, True) == "Exploratory"
+    assert shown_tier(no_k, True) == "Exploratory"
+    assert shown_tier(demo, False) == "Exploratory"
+
+
 if __name__ == "__main__":
     tests = [
         test_stability_monotone,
@@ -269,6 +280,7 @@ if __name__ == "__main__":
         test_reference_system_alcu_shows_info_instead_of_card,
         test_other_systems_keep_evidence_score_and_order,
         test_alcu_shows_measured_reference_never_exploratory,
+        test_measured_reference_label_only_for_cited_demo_rows,
     ]
     for fn in tests:
         fn()

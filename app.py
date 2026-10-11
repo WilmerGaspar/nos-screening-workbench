@@ -11,7 +11,7 @@ from ranking import RELIABILITY_WEIGHTS, normalize_weights, rank_stability
 from die_stack import DIES
 from thermal import APPLICATIONS, SUBSTRATES
 from interface import DEFAULT_SHARE_MAX, DEFAULT_TIM_KAPPA, DEFAULT_TIM_UM
-from demo_systems import DEMO_SYSTEMS, is_reference
+from demo_systems import DEMO_SYSTEMS, REFERENCE_TIER, is_reference, shown_tier
 from standards import STANDARDS
 from i18n import LANGS, t, verdict_text
 from report_pdf import build_pdf, build_zip_all_langs
@@ -27,10 +27,7 @@ VERSION = "v0.5"
 st.set_page_config(page_title="NOS Screening Workbench", page_icon="◆", layout="wide")
 PROCESS_OPTIONS = {"PVD (sputter / arc)": "pvd", "Thermal spray / HVOF": "thermal_spray", "Electroplating": "electroplating"}
 TIER_COLORS = {"Experimentally verified": "#0f766e", "Partially backed": "#ca8a04", "Well-calculated (DFT)": "#1d4ed8", "Exploratory": "#6b7280",
-               "Measured (reference)": "#0e7490"}
-# Reference systems: a phase with a cited measured kappa is shown with this evidence label (display only;
-# NOS, score and order are not changed).
-REFERENCE_TIER = "Measured (reference)"
+               REFERENCE_TIER: "#0e7490"}
 DEFAULT_CONTACT = "wilmergasparespinoza@gmail.com"
 # Display only: the verdict codes themselves (and the CSV) are unchanged.
 VERDICT_COLOR = {"proceed_to_coupon": "green", "coupon_high_cte_risk": "orange", "coupon_cte_unknown": "orange",
@@ -265,9 +262,8 @@ def recommendation_card(rows, cfg, lang, mode):
 def scatter(rows, cooling, lang, reference=False):
     fig = go.Figure()
     xkey = "interface_score" if cooling else "NOS"
-    shown = lambda r: REFERENCE_TIER if reference and r.get("kappa_wm_k") is not None else r["tier"]
     for tier, color in TIER_COLORS.items():
-        chunk = [r for r in rows if shown(r) == tier]
+        chunk = [r for r in rows if shown_tier(r, reference) == tier]
         if not chunk: continue
         fig.add_trace(go.Scatter(x=[r[xkey] for r in chunk], y=[r["manuf_score"] for r in chunk], mode="markers", name=ui.tier_label(lang, tier), marker=dict(size=[16 if r["pareto"] else 11 for r in chunk], color=color, symbol=["diamond" if r["pareto"] else "circle" for r in chunk]), text=[f"{r['formula']} · {verdict_label(lang, r.get('verdict'))}" for r in chunk], hoverinfo="text"))
     fig.update_layout(height=400, xaxis=dict(range=[0,1], title=t(lang,"ax_x") if cooling else "NOS"), yaxis=dict(range=[0,1], title=t(lang, "ax_y")), template="plotly_white", margin=dict(t=20))
