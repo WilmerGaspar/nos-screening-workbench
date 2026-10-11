@@ -7,6 +7,7 @@ Live mode requires MP_API_KEY. Offline mode uses demo_data.py.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from typing import Dict, List, Optional
 
 from scoring import (
@@ -32,8 +33,12 @@ def _icsd_ids(doc) -> List:
 
 
 def _vrh(mod) -> Optional[float]:
+    """VRH average of an MP modulus field: a dict {"voigt", "reuss", "vrh"} (current mp-api)
+    or an object with a .vrh attribute. None or empty gives None."""
     if not mod:
         return None
+    if isinstance(mod, Mapping):
+        return mod.get("vrh")
     return getattr(mod, "vrh", None)
 
 
