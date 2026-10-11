@@ -51,6 +51,18 @@ _SYSTEMS = {
     },
 }
 
+# Shown in place of the recommendation card for reference systems ({phase}, {k} come from the rows).
+_REFERENCE_INFO = {
+    "es": {
+        "Al,Cu": "Sistema de referencia: fases medidas que crecen en uniones Al/Cu, no recubrimientos. "
+                 "La de menor κ es {phase} ({k} W/m·K).",
+    },
+    "en": {
+        "Al,Cu": "Reference system: measured phases that grow at Al/Cu joints, not coatings. "
+                 "The lowest κ is {phase} ({k} W/m·K).",
+    },
+}
+
 # Caption under the chemical-system selector; only systems listed here get one.
 _SYSTEM_NOTES = {
     "es": {
@@ -178,6 +190,11 @@ def app_blurb(lang, key):
 def system_label(lang, key):
     fallback = next(s["label"] for s in DEMO_SYSTEMS if s["key"] == key)
     return _SYSTEMS.get(lang, _SYSTEMS["en"]).get(key, fallback)
+
+
+def reference_info(lang, key):
+    """Info text for a reference system, with {phase} and {k} still to fill; None if the system has none."""
+    return _REFERENCE_INFO.get(lang, _REFERENCE_INFO["en"]).get(key)
 
 
 def system_note(lang, key):

@@ -150,6 +150,51 @@ def test_alcu_system_returns_the_four_measured_phases():
     assert sorted(r["formula"] for r in run_demo(["cited7"])) == sorted(seven)
 
 
+def _app(system=None):
+    """Run app.py headless (Streamlit AppTest) with the default sidebar, optionally with another chemical system."""
+    import os
+    import warnings
+    from streamlit.testing.v1 import AppTest
+    warnings.filterwarnings("ignore")
+    os.environ.pop("NOS_EVAL_FORM_URL", None)
+    os.environ.pop("MP_API_KEY", None)
+    at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=180)
+    at.run()
+    if system:
+        next(s for s in at.selectbox if s.label == "Sistema químico").set_value(system).run()
+    assert not at.exception, [e.message for e in at.exception]
+    return at
+
+
+def test_default_demo_unchanged_by_reference_systems():
+    at = _app()
+    assert [m.value for m in at.markdown if m.value.startswith("## ")] == ["## NiAl"]  # recommendation card
+    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
+    infos = [i.value for i in at.info]
+    assert any("NiAl queda 1.º en el 92%" in v for v in infos)
+    assert not any(v.startswith("Sistema de referencia") for v in infos)
+    coupon = [d.proto.id for d in at.get("download_button") if "dl_coupon" in d.proto.id]
+    assert len(coupon) == 2  # coupon sheet in the card and in the downloads row
+    assert [p.proto.popover.label for p in at.get("popover")] == ["Solicitar estudio o probeta", "Evalúa esta herramienta (2 min)"]
+
+
+def test_reference_system_alcu_shows_info_instead_of_card():
+    from demo_systems import DEMO_SYSTEMS, is_reference
+    assert [s["key"] for s in DEMO_SYSTEMS if is_reference(s["key"])] == ["Al,Cu"]
+    at = _app("Al,Cu")
+    assert not [m.value for m in at.markdown if m.value.startswith("## ")]  # no recommendation card
+    infos = [i.value for i in at.info]
+    assert ("Sistema de referencia: fases medidas que crecen en uniones Al/Cu, no recubrimientos. "
+            "La de menor κ es Al2Cu3 (25.9 W/m·K).") in infos
+    assert not any("Estabilidad del ranking" in v for v in infos)
+    assert not any("dl_coupon" in d.proto.id for d in at.get("download_button"))  # no coupon sheet
+    assert [p.proto.popover.label for p in at.get("popover")] == ["Evalúa esta herramienta (2 min)"]  # no study request
+    # Table, phase map and per-phase detail stay.
+    assert [s.value for s in at.subheader][:3] == ["Ranking", "Mapa de fases", "Detalle por fase"]
+    assert len(at.get("plotly_chart")) == 1
+    assert any(m.label == "κ bulk / κ necesaria" for m in at.metric)
+
+
 if __name__ == "__main__":
     tests = [
         test_stability_monotone,
@@ -169,6 +214,8 @@ if __name__ == "__main__":
         test_vrh_reads_an_object_with_a_vrh_attribute,
         test_vrh_none_stays_none,
         test_alcu_system_returns_the_four_measured_phases,
+        test_default_demo_unchanged_by_reference_systems,
+        test_reference_system_alcu_shows_info_instead_of_card,
     ]
     for fn in tests:
         fn()

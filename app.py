@@ -11,7 +11,7 @@ from ranking import RELIABILITY_WEIGHTS, normalize_weights, rank_stability
 from die_stack import DIES
 from thermal import APPLICATIONS, SUBSTRATES
 from interface import DEFAULT_SHARE_MAX, DEFAULT_TIM_KAPPA, DEFAULT_TIM_UM
-from demo_systems import DEMO_SYSTEMS
+from demo_systems import DEMO_SYSTEMS, is_reference
 from standards import STANDARDS
 from i18n import LANGS, t, verdict_text
 from report_pdf import build_pdf, build_zip_all_langs
@@ -208,6 +208,19 @@ def coupon_button(cfg, rows, lang, key):
                        file_name=f"nos_coupon_{phase.get('formula','phase')}.pdf", mime="application/pdf",
                        on_click="ignore", key=key, help=t(lang, "h_coupon"), width="stretch")
 
+def reference_panel(rows, cfg, lang, mode):
+    """Reference system (measured phases, not coatings): no recommendation card, coupon sheet,
+    study request or rank stability; the evaluation button stays."""
+    with_k = [r for r in rows if r.get("kappa_wm_k") is not None]
+    low = min(with_k, key=lambda r: r["kappa_wm_k"]) if with_k else None
+    text = ui.reference_info(lang, ",".join(cfg.get("elements") or []))
+    if text:
+        st.info(text.format(phase=low["formula"] if low else t(lang, "no_data"),
+                            k=f"{low['kappa_wm_k']:.1f}" if low else t(lang, "no_data")))
+    with st.popover(t(lang, "eval_btn"), key="eval_pop"):
+        eval_panel(rows, cfg, lang, key="eval_pop", short=True)
+    metrics(rows, mode, cfg["cooling"], lang)
+
 def recommendation_card(rows, cfg, lang, mode):
     phase = pick_phase(rows)
     with st.container(border=True, key="rec_card"):
@@ -294,7 +307,7 @@ def _colcfg(lang):
         t(lang, "d_flags"): C(help=t(lang, "h_flags")),
     }
 
-def table(rows, cooling, lang, cfg, mode):
+def table(rows, cooling, lang, cfg, mode, reference=False):
     short = pd.DataFrame([{
         t(lang, "d_rank"): r["rank"], t(lang, "d_phase"): r["formula"],
         t(lang, "d_verdict"): verdict_label(lang, r.get("verdict"), dot=True),
@@ -317,7 +330,8 @@ def table(rows, cooling, lang, cfg, mode):
     with c1: st.download_button(t(lang,"csv"), data=buf.getvalue(), file_name=f"nos_ranking_{lang}.csv", mime="text/csv", on_click="ignore", width="stretch")
     with c2: st.download_button(t(lang,"pdf"), data=_report_pdf(lang, pcfg, rows, mode), file_name=f"nos_report_{lang}.pdf", mime="application/pdf", on_click="ignore", width="stretch")
     with c3: st.download_button(t(lang,"pdf_all"), data=_report_zip(pcfg, rows, mode), file_name="nos_reports_es_en_fr_de.zip", mime="application/zip", on_click="ignore", width="stretch")
-    with c4: coupon_button(cfg, rows, lang, key="dl_coupon_row")
+    if not reference:
+        with c4: coupon_button(cfg, rows, lang, key="dl_coupon_row")
 
 def email_options(lang, label, subject, body, primary=False, short=False, key=None):
     """A mailto: link alone opens a blank tab when the browser has no mail app (e.g. Gmail
@@ -553,8 +567,12 @@ def screening_view(cfg, lang):
     rows, mode = screen(cfg)
     if rows is None:
         context_panel(cfg, lang, expanded=True); return None
-    recommendation_card(rows, cfg, lang, mode)
-    st.subheader(t(lang, "summary_h")); table(rows, cfg["cooling"], lang, cfg, mode)
+    reference = is_reference(",".join(cfg.get("elements") or []))
+    if reference:
+        reference_panel(rows, cfg, lang, mode)
+    else:
+        recommendation_card(rows, cfg, lang, mode)
+    st.subheader(t(lang, "summary_h")); table(rows, cfg["cooling"], lang, cfg, mode, reference=reference)
     st.subheader(t(lang, "chart_h")); scatter(rows, cfg["cooling"], lang)
     st.subheader(t(lang, "detail_h")); detail(rows, lang)
     context_panel(cfg, lang)
