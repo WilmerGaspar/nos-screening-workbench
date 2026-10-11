@@ -82,6 +82,8 @@ def test_eval_body_has_five_questions_and_setup():
 
 def test_eval_subject():
     assert feedback.eval_subject("NiAl", "Cold plate / leadframe (Cu)") == "NOS evaluation - NiAl - Cold plate / leadframe (Cu)"
+    assert feedback.eval_subject("Al2Cu", "Cold plate / leadframe (Cu)", reference=True) == \
+        "NOS evaluation - Al-Cu reference - Cold plate / leadframe (Cu)"
 
 
 def test_form_url_accepts_only_https():
@@ -163,6 +165,7 @@ def test_eval_email_and_form_name_the_lowest_kappa_phase_for_al_cu():
         assert not at.exception, [e.message for e in at.exception]
         default = _bodies(at, "Hi Wilmer,\n\nMy evaluation")
         assert default and all(b.endswith("\nTop phase in my run: NiAl (proceed_to_coupon)") for b in default)
+        assert [c.value for c in at.code].count("NOS evaluation - NiAl - Cold plate / leadframe (Cu)") == 2
         next(s for s in at.selectbox if s.label == "Sistema químico").set_value("Al,Cu").run()
         assert not at.exception, [e.message for e in at.exception]
         bodies = _bodies(at, "Hi Wilmer,\n\nMy evaluation")
@@ -173,6 +176,8 @@ def test_eval_email_and_form_name_the_lowest_kappa_phase_for_al_cu():
         evals = [parse_qs(urlparse(u).query, keep_blank_values=True) for u in gmail]
         evals = [q for q in evals if q["su"][0].startswith("NOS evaluation - ")]
         assert len(evals) == 2 and all(q["body"][0].split("\n")[-1] == REF_LINE for q in evals)
+        assert all(q["su"][0] == "NOS evaluation - Al-Cu reference - Cold plate / leadframe (Cu)" for q in evals)
+        assert "NOS evaluation - Al-Cu reference - Cold plate / leadframe (Cu)" in [c.value for c in at.code]  # copy text
         # Form mode: the setup block to copy into the form
         os.environ["NOS_EVAL_FORM_URL"] = "https://forms.gle/x"
         at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)

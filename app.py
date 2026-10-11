@@ -26,7 +26,11 @@ LOGO = ROOT / "assets" / "logo.jpg"
 VERSION = "v0.5"
 st.set_page_config(page_title="NOS Screening Workbench", page_icon="◆", layout="wide")
 PROCESS_OPTIONS = {"PVD (sputter / arc)": "pvd", "Thermal spray / HVOF": "thermal_spray", "Electroplating": "electroplating"}
-TIER_COLORS = {"Experimentally verified": "#0f766e", "Partially backed": "#ca8a04", "Well-calculated (DFT)": "#1d4ed8", "Exploratory": "#6b7280"}
+TIER_COLORS = {"Experimentally verified": "#0f766e", "Partially backed": "#ca8a04", "Well-calculated (DFT)": "#1d4ed8", "Exploratory": "#6b7280",
+               "Measured (reference)": "#0e7490"}
+# Reference systems: a phase with a cited measured kappa is shown with this evidence label (display only;
+# NOS, score and order are not changed).
+REFERENCE_TIER = "Measured (reference)"
 DEFAULT_CONTACT = "wilmergasparespinoza@gmail.com"
 # Display only: the verdict codes themselves (and the CSV) are unchanged.
 VERDICT_COLOR = {"proceed_to_coupon": "green", "coupon_high_cte_risk": "orange", "coupon_cte_unknown": "orange",
@@ -258,14 +262,17 @@ def recommendation_card(rows, cfg, lang, mode):
                                                    site=site_spec(cfg.get("site"), lang)["label"], src=src))
     metrics(rows, mode, cfg["cooling"], lang)
 
-def scatter(rows, cooling, lang):
+def scatter(rows, cooling, lang, reference=False):
     fig = go.Figure()
     xkey = "interface_score" if cooling else "NOS"
+    shown = lambda r: REFERENCE_TIER if reference and r.get("kappa_wm_k") is not None else r["tier"]
     for tier, color in TIER_COLORS.items():
-        chunk = [r for r in rows if r["tier"] == tier]
+        chunk = [r for r in rows if shown(r) == tier]
         if not chunk: continue
         fig.add_trace(go.Scatter(x=[r[xkey] for r in chunk], y=[r["manuf_score"] for r in chunk], mode="markers", name=ui.tier_label(lang, tier), marker=dict(size=[16 if r["pareto"] else 11 for r in chunk], color=color, symbol=["diamond" if r["pareto"] else "circle" for r in chunk]), text=[f"{r['formula']} · {verdict_label(lang, r.get('verdict'))}" for r in chunk], hoverinfo="text"))
     fig.update_layout(height=400, xaxis=dict(range=[0,1], title=t(lang,"ax_x") if cooling else "NOS"), yaxis=dict(range=[0,1], title=t(lang, "ax_y")), template="plotly_white", margin=dict(t=20))
+    if reference:
+        fig.update_layout(showlegend=True)  # one trace gets no legend by default; the evidence label must show
     st.caption(t(lang, "chart_caption") if cooling else t(lang, "chart_caption_generic"))
     st.plotly_chart(fig, width="stretch")
 
@@ -385,7 +392,7 @@ def eval_panel(rows, cfg, lang, key, short):
         st.caption(t(lang, "eval_caption_form"))
     else:
         site_en = site_spec(cfg.get("site"), "en")["label"]
-        subject = feedback.eval_subject((phase or {}).get("formula", ""), site_en)
+        subject = feedback.eval_subject((phase or {}).get("formula", ""), site_en, reference=reference is not None)
         email_options(lang, t(lang, "eval_btn"), subject, feedback.eval_body(lines), primary=True, short=short, key=key)
         st.caption(t(lang, "eval_caption_email"))
 
@@ -575,7 +582,7 @@ def screening_view(cfg, lang):
     else:
         recommendation_card(rows, cfg, lang, mode)
     st.subheader(t(lang, "summary_h")); table(rows, cfg["cooling"], lang, cfg, mode, reference=reference)
-    st.subheader(t(lang, "chart_h")); scatter(rows, cfg["cooling"], lang)
+    st.subheader(t(lang, "chart_h")); scatter(rows, cfg["cooling"], lang, reference=reference)
     st.subheader(t(lang, "detail_h")); detail(rows, lang)
     context_panel(cfg, lang)
     return rows

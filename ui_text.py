@@ -91,6 +91,7 @@ _TIERS = {
         "Partially backed": "Parcialmente respaldado",
         "Well-calculated (DFT)": "Calculado con DFT",
         "Exploratory": "Exploratorio",
+        "Measured (reference)": "Medido (referencia)",
     },
 }
 

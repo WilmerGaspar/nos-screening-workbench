@@ -150,7 +150,7 @@ def test_alcu_system_returns_the_four_measured_phases():
     assert sorted(r["formula"] for r in run_demo(["cited7"])) == sorted(seven)
 
 
-def _app(system=None):
+def _app(system=None, lang="es"):
     """Run app.py headless (Streamlit AppTest) with the default sidebar, optionally with another chemical system."""
     import os
     import warnings
@@ -160,10 +160,32 @@ def _app(system=None):
     os.environ.pop("MP_API_KEY", None)
     at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=180)
     at.run()
+    if lang == "en":  # changing the language resets the other selectors, so it goes first
+        next(s for s in at.selectbox if s.label == "Language / Idioma").set_value("en").run()
     if system:
-        next(s for s in at.selectbox if s.label == "Sistema químico").set_value(system).run()
+        label = "Chemical system" if lang == "en" else "Sistema químico"
+        next(s for s in at.selectbox if s.label == label).set_value(system).run()
     assert not at.exception, [e.message for e in at.exception]
     return at
+
+
+def _map(at):
+    """(trace names with point counts, layout.showlegend) of the phase map."""
+    import json
+    spec = json.loads(at.get("plotly_chart")[0].proto.spec)
+    return [(d.get("name"), len(d.get("x", []))) for d in spec["data"]], spec["layout"].get("showlegend")
+
+
+def _page_text(at):
+    """Every element of the rendered page as protobuf text (labels, values, chart specs, code blocks)."""
+    out = []
+    def walk(node):
+        if getattr(node, "proto", None) is not None:
+            out.append(str(node.proto))
+        for child in (getattr(node, "children", None) or {}).values():
+            walk(child)
+    walk(at._tree)
+    return "\n".join(out)
 
 
 def test_default_demo_unchanged_by_reference_systems():
@@ -195,6 +217,35 @@ def test_reference_system_alcu_shows_info_instead_of_card():
     assert any(m.label == "κ bulk / κ necesaria" for m in at.metric)
 
 
+def test_other_systems_keep_evidence_score_and_order():
+    from demo_systems import DEMO_SYSTEMS, is_reference
+    at = _app()
+    # Default demo: NiAl first, 0.807, 92 %, evidence label and map as before.
+    fase = next(s for s in at.selectbox if s.label == "Fase")
+    assert fase.options[0] == "01 · NiAl (0.807)"
+    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
+    assert any("NiAl queda 1.º en el 92%" in i.value for i in at.info)
+    assert _map(at) == ([("Verificado experimentalmente", 7)], None)
+    # Every other system: no reference label, no forced legend.
+    for key in [s["key"] for s in DEMO_SYSTEMS if not is_reference(s["key"]) and s["key"] != "cited7"]:
+        next(s for s in at.selectbox if s.label == "Sistema químico").set_value(key).run()
+        assert not at.exception, (key, [e.message for e in at.exception])
+        if not at.get("plotly_chart"):  # Co,Ti has no demo phase: no map at all
+            assert not run_demo([e.strip() for e in key.split(",")]), key
+            continue
+        traces, legend = _map(at)
+        assert legend is None and traces and all(name != "Medido (referencia)" for name, _ in traces), key
+
+
+def test_alcu_shows_measured_reference_never_exploratory():
+    for lang, bad, good in (("es", "Exploratorio", "Medido (referencia)"), ("en", "Exploratory", "Measured (reference)")):
+        at = _app("Al,Cu", lang)
+        text = _page_text(at)
+        assert bad not in text and bad.lower() not in text, lang
+        assert good in text, lang
+        assert _map(at) == ([(good, 4)], True), lang
+
+
 if __name__ == "__main__":
     tests = [
         test_stability_monotone,
@@ -216,6 +267,8 @@ if __name__ == "__main__":
         test_alcu_system_returns_the_four_measured_phases,
         test_default_demo_unchanged_by_reference_systems,
         test_reference_system_alcu_shows_info_instead_of_card,
+        test_other_systems_keep_evidence_score_and_order,
+        test_alcu_shows_measured_reference_never_exploratory,
     ]
     for fn in tests:
         fn()

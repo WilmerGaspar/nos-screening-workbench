@@ -51,7 +51,13 @@ def form_url(raw) -> str:
     return ""
 
 
-def eval_subject(formula, site_en) -> str:
+# Subject for a reference system (Al,Cu is the only one): no top phase in it.
+REFERENCE_SUBJECT = "NOS evaluation - Al-Cu reference - {site_en}"
+
+
+def eval_subject(formula, site_en, reference: bool = False) -> str:
+    if reference:
+        return REFERENCE_SUBJECT.format(site_en=site_en)
     return f"NOS evaluation - {formula} - {site_en}"
 
 
