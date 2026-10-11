@@ -211,12 +211,10 @@ def coupon_button(cfg, rows, lang, key):
 def reference_panel(rows, cfg, lang, mode):
     """Reference system (measured phases, not coatings): no recommendation card, coupon sheet,
     study request or rank stability; the evaluation button stays."""
-    with_k = [r for r in rows if r.get("kappa_wm_k") is not None]
-    low = min(with_k, key=lambda r: r["kappa_wm_k"]) if with_k else None
+    low = feedback.lowest_kappa(rows)
     text = ui.reference_info(lang, ",".join(cfg.get("elements") or []))
     if text:
-        st.info(text.format(phase=low["formula"] if low else t(lang, "no_data"),
-                            k=f"{low['kappa_wm_k']:.1f}" if low else t(lang, "no_data")))
+        st.info(text.format(phase=low[0] if low else t(lang, "no_data"), k=low[1] if low else t(lang, "no_data")))
     with st.popover(t(lang, "eval_btn"), key="eval_pop"):
         eval_panel(rows, cfg, lang, key="eval_pop", short=True)
     metrics(rows, mode, cfg["cooling"], lang)
@@ -374,7 +372,11 @@ def eval_panel(rows, cfg, lang, key, short):
     st.markdown(f"**{t(lang, 'eval_h')}**")
     st.markdown(t(lang, "eval_intro"))
     phase = pick_phase(rows) if rows else None
-    lines = feedback.setup_lines(cfg, phase)
+    # Reference systems: the last setup line names the lowest-kappa phase (same as the info line), not a top phase.
+    reference = None
+    if is_reference(",".join(cfg.get("elements") or [])):
+        reference = feedback.lowest_kappa(rows) or ("no data", "no data")
+    lines = feedback.setup_lines(cfg, phase, reference)
     url = feedback.form_url(_secret("NOS_EVAL_FORM_URL"))
     if url:
         st.link_button(t(lang, "eval_open_form"), url, type="primary", key=f"{key}_form")

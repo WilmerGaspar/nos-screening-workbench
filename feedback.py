@@ -4,22 +4,40 @@ Pure Python: no Streamlit. The app shows these texts; nothing is stored or sent 
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from stack_sites import site_spec
 from thermal import APPLICATIONS
 
 
-def setup_lines(cfg: Dict, phase: Optional[Dict]) -> List[str]:
-    """The setup lines of the study-request e-mail (same text as before this module existed)."""
+# Last setup line for a reference system (Al,Cu is the only one): it replaces "Top phase in my run".
+REFERENCE_LINE = "Reference system: Al/Cu joint phases; lowest kappa: {phase} ({k} W/mK)"
+
+
+def lowest_kappa(rows) -> Optional[Tuple[str, str]]:
+    """(formula, kappa as shown, e.g. "25.9") of the row with the lowest measured kappa, or None."""
+    with_k = [r for r in rows or [] if r.get("kappa_wm_k") is not None]
+    if not with_k:
+        return None
+    low = min(with_k, key=lambda r: r["kappa_wm_k"])
+    return low["formula"], f"{low['kappa_wm_k']:.1f}"
+
+
+def setup_lines(cfg: Dict, phase: Optional[Dict], reference: Optional[Tuple[str, str]] = None) -> List[str]:
+    """The setup lines of the study-request e-mail (same text as before this module existed).
+    reference: (phase, kappa) for a reference system; it replaces the top-phase line."""
     phase = phase or {}
     site_en = site_spec(cfg.get("site"), "en")["label"]
+    if reference:
+        last = REFERENCE_LINE.format(phase=reference[0], k=reference[1])
+    else:
+        last = f"Top phase in my run: {phase.get('formula', '-')} ({phase.get('verdict', '-')})"
     return [
         f"Application: {APPLICATIONS[cfg['application']]['label']}",
         f"Layer site: {site_en}",
         f"Process: {cfg.get('process_label')} - {cfg.get('thickness_um')} um on {cfg.get('substrate')}",
         f"Service T: {cfg.get('temp')} C - TIM: {cfg.get('tim_um')} um at {cfg.get('tim_kappa')} W/mK",
-        f"Top phase in my run: {phase.get('formula', '-')} ({phase.get('verdict', '-')})",
+        last,
     ]
 
 

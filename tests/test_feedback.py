@@ -132,6 +132,61 @@ def test_request_panel_body_unchanged_in_the_app():
     assert q["su"][0] == "NOS study request - NiAl - Cold plate / leadframe (Cu)"
 
 
+REF_LINE = "Reference system: Al/Cu joint phases; lowest kappa: Al2Cu3 (25.9 W/mK)"
+
+
+def test_setup_lines_reference_system_last_line():
+    cfg = _demo_cfg()
+    rows = evaluate_candidates(run_demo(["Al", "Cu"]), cfg)
+    assert feedback.lowest_kappa(rows) == ("Al2Cu3", "25.9")
+    plain = feedback.setup_lines(cfg, pick_phase(rows))
+    ref = feedback.setup_lines(cfg, pick_phase(rows), feedback.lowest_kappa(rows))
+    assert ref[-1] == REF_LINE
+    assert ref[:-1] == plain[:-1] and len(ref) == 5
+    assert feedback.lowest_kappa([]) is None and feedback.lowest_kappa(None) is None
+
+
+def _bodies(at, start):
+    return [c.value for c in at.code if c.value.startswith(start)]
+
+
+def test_eval_email_and_form_name_the_lowest_kappa_phase_for_al_cu():
+    """App run (AppTest): Al,Cu changes only the last setup line of the evaluation e-mail and form;
+    the default demo keeps "Top phase in my run"."""
+    warnings.filterwarnings("ignore")
+    from streamlit.testing.v1 import AppTest
+    old = os.environ.pop("NOS_EVAL_FORM_URL", None)
+    try:
+        # E-mail mode
+        at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
+        at.run()
+        assert not at.exception, [e.message for e in at.exception]
+        default = _bodies(at, "Hi Wilmer,\n\nMy evaluation")
+        assert default and all(b.endswith("\nTop phase in my run: NiAl (proceed_to_coupon)") for b in default)
+        next(s for s in at.selectbox if s.label == "Sistema químico").set_value("Al,Cu").run()
+        assert not at.exception, [e.message for e in at.exception]
+        bodies = _bodies(at, "Hi Wilmer,\n\nMy evaluation")
+        assert len(bodies) == 2  # popover under the info line + box at the end of the tab
+        for b in bodies:
+            assert b.split("\n")[-1] == REF_LINE and "Top phase in my run" not in b
+        gmail = [e.proto.url for e in at.get("link_button") if e.proto.url.startswith("https://mail.google.com/")]
+        evals = [parse_qs(urlparse(u).query, keep_blank_values=True) for u in gmail]
+        evals = [q for q in evals if q["su"][0].startswith("NOS evaluation - ")]
+        assert len(evals) == 2 and all(q["body"][0].split("\n")[-1] == REF_LINE for q in evals)
+        # Form mode: the setup block to copy into the form
+        os.environ["NOS_EVAL_FORM_URL"] = "https://forms.gle/x"
+        at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
+        at.run()
+        next(s for s in at.selectbox if s.label == "Sistema químico").set_value("Al,Cu").run()
+        assert not at.exception, [e.message for e in at.exception]
+        setups = _bodies(at, "Application: ")
+        assert len(setups) == 2 and all(b.split("\n")[-1] == REF_LINE for b in setups)
+    finally:
+        os.environ.pop("NOS_EVAL_FORM_URL", None)
+        if old is not None:
+            os.environ["NOS_EVAL_FORM_URL"] = old
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in tests:
