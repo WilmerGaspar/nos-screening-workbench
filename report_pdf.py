@@ -43,8 +43,8 @@ def _styles():
 
 def ranking_rows(lang, rows, reference=False):
     """Body rows of the PDF ranking table, as text: rank, formula, score, manuf, dCTE, verdict, k, k needed.
-    Reference systems (Al-Cu): kappa order as on screen, score / manuf "-", and the measured label
-    in the verdict column for the cited rows."""
+    Reference systems (Al-Cu): kappa order as on screen, score and manuf "-" (a phase that grows at a
+    joint is not ranked for deposition), and the measured label in the verdict column for the cited rows."""
     if reference:
         rows = reference_table_rows(rows)
     out = []
@@ -52,8 +52,7 @@ def ranking_rows(lang, rows, reference=False):
         k = r.get("kappa_wm_k"); dc = r.get("dcte_max"); kn = r.get("kappa_needed")
         verdict = verdict_text(lang, r.get("verdict") or "coupon_cte_unknown")
         if reference:
-            score = "-" if r.get("combined") is None else f"{r['combined']:.3f}"
-            manuf = "-"
+            score = manuf = "-"
             if shown_tier(r, True) == REFERENCE_TIER:
                 verdict = ui_text.tier_label(lang, REFERENCE_TIER)
         else:

@@ -330,6 +330,7 @@ def test_reference_detail_notes_hide_deposition_and_cte_notes():
 
 def test_alcu_detail_shows_no_hidden_notes():
     import ui_text as ui
+    from i18n import verdict_text
     from demo_systems import reference_detail_notes
     from interface import FLAG_TEXT
     rows = {r["formula"]: r for r in _alcu_rows()}
@@ -354,6 +355,7 @@ def test_alcu_detail_shows_no_hidden_notes():
             assert detail_metrics == ["κ bulk / " + ("κ necesaria" if lang == "es" else "κ needed")], (lang, detail_metrics)
             assert not any("badge[" in m.value for m in at.markdown)
             assert not any(c.value.startswith(code) for c in at.caption)
+            assert verdict_text(lang, row["verdict"]) not in [m.value for m in at.markdown]
 
 
 def test_reference_pdf_rows_and_other_systems_pdf_unchanged():
@@ -365,6 +367,8 @@ def test_reference_pdf_rows_and_other_systems_pdf_unchanged():
         got = ranking_rows(lang, _alcu_rows(), reference=True)
         assert [c[:4] for c in got] == [["1", "Al2Cu3", "-", "-"], ["2", "Al4Cu9", "-", "-"], ["3", "Al2Cu", "-", "-"], ["4", "AlCu", "-", "-"]]
         assert [c[5] for c in got] == [label[lang]] * 4 and [c[6] for c in got] == ["25.9", "38.6", "62.0", "73.4"]
+    live = {**_alcu_rows()[0], "source": "materials_project", "e_above_hull": 0.0, "bulk_modulus": 1.0, "shear_modulus": 1.0}
+    assert ranking_rows("es", [live], reference=True)[0][2:4] == ["-", "-"]  # even with a score of its own
     # Every other system, several setups, 4 languages: the PDF rows are exactly the old ones.
     n = 0
     for s in DEMO_SYSTEMS:
@@ -395,6 +399,8 @@ def test_reference_pdf_rows_and_other_systems_pdf_unchanged():
 
 def test_other_systems_detail_unchanged():
     from demo_systems import DEMO_SYSTEMS, is_reference
+    from i18n import verdict_text
+    from pipeline import DEFAULTS, evaluate_candidates
     import ui_text as ui
     from interface import FLAG_TEXT
     at = _app()
@@ -411,11 +417,26 @@ def test_other_systems_detail_unchanged():
         if not fase:  # Co,Ti has no demo phase
             assert not run_demo([e.strip() for e in key.split(",")]), key
             continue
-        assert all(o.endswith(")") and "(κ" not in o and o.split("(")[-1][:2] == "0." for o in fase[0].options), key
-        assert [m.label for m in at.metric][4:] == ["Interfaz", "Fabricación", "κ bulk / κ necesaria", "Puntaje"], key
-        assert [e.label for e in at.expander if e.label in ("Por qué este dictamen", "Notas de esta fase")] == ["Por qué este dictamen"], key
-        assert any(c.value.startswith("Código del dictamen: ") for c in at.caption), key
-        assert any("badge[" in m.value for m in at.markdown), key
+        # Same rows the app computes with its default sidebar (pipeline defaults, as in test_feedback).
+        rows = evaluate_candidates(run_demo([e.strip() for e in key.split(",")]), dict(DEFAULTS))
+        assert fase[0].options == [f"{r['rank']:02d} · {r['formula']} ({r['combined']:.3f})" for r in rows], key
+        # Both tables: order, position, score and NOS exactly as before (numbers, never "sin dato").
+        short, full = at.dataframe[0].value, at.dataframe[1].value
+        assert list(short["Fase"]) == list(full["Fase"]) == [r["formula"] for r in rows], key
+        assert list(full["Puesto"]) == [r["rank"] for r in rows], key
+        assert list(full["Puntaje"]) == [f"{r['combined']:.4f}" for r in rows], key
+        assert list(full["NOS"]) == [f"{r['NOS']:.4f}" for r in rows], key
+        for option, r in zip(fase[0].options, rows):
+            next(s for s in at.selectbox if s.label == "Fase").set_value(option).run()
+            assert not at.exception, (key, option)
+            assert [m.label for m in at.metric][4:] == ["Interfaz", "Fabricación", "κ bulk / κ necesaria", "Puntaje"], (key, option)
+            assert [m.value for m in at.metric][-1] == f"{r['combined']:.3f}", (key, option)
+            assert f"Código del dictamen: {r['verdict']}" in [c.value for c in at.caption], (key, option)
+            assert verdict_text("es", r["verdict"]) in [m.value for m in at.markdown], (key, option)
+            exp = [e for e in at.expander if e.label in ("Por qué este dictamen", "Notas de esta fase")]
+            assert [e.label for e in exp] == ["Por qué este dictamen"], (key, option)
+            every = r["interface_notes"] + r["relevance_notes"] + r["flag_notes"] + r["manuf_notes"]
+            assert [m.value for m in exp[0].markdown] == [f"- {ui.note('es', n)}" for n in every], (key, option)
 
 
 if __name__ == "__main__":
