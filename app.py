@@ -11,7 +11,7 @@ from ranking import RELIABILITY_WEIGHTS, normalize_weights, rank_stability
 from die_stack import DIES
 from thermal import APPLICATIONS, SUBSTRATES
 from interface import DEFAULT_SHARE_MAX, DEFAULT_TIM_KAPPA, DEFAULT_TIM_UM
-from demo_systems import DEMO_SYSTEMS, REFERENCE_TIER, is_reference, shown_tier
+from demo_systems import DEMO_SYSTEMS, REFERENCE_TIER, is_reference, reference_table_rows, shown_tier
 from standards import STANDARDS
 from i18n import LANGS, t, verdict_text
 from report_pdf import build_pdf, build_zip_all_langs
@@ -309,11 +309,13 @@ def _colcfg(lang):
     }
 
 def table(rows, cooling, lang, cfg, mode, reference=False):
+    # Reference systems: tables and CSV sorted by kappa bulk, NOS / score empty (no stability or mechanics data).
+    trows = reference_table_rows(rows) if reference else rows
     short = pd.DataFrame([{
         t(lang, "d_rank"): r["rank"], t(lang, "d_phase"): r["formula"],
         t(lang, "d_verdict"): verdict_label(lang, r.get("verdict"), dot=True),
         t(lang, "d_dcte"): r.get("dcte_max"), t(lang, "d_dtc"): _num(r.get("dt_coat"), ".2f"), t(lang, "d_dtt"): _num(r.get("dt_tim"), ".2f"),
-    } for r in rows])
+    } for r in trows])
     show_df(short, lang, {k: v for k, v in _ranking_fmt(lang).items() if k in short.columns}, column_config=_colcfg(lang))
     with st.expander(t(lang, "full_table")):
         full = pd.DataFrame([{
@@ -322,9 +324,9 @@ def table(rows, cooling, lang, cfg, mode, reference=False):
             t(lang, "d_verdict"): verdict_label(lang, r.get("verdict"), dot=True), t(lang, "d_kbulk"): r.get("kappa_wm_k"),
             t(lang, "d_kneed"): r.get("kappa_needed"), t(lang, "d_dtc"): _num(r.get("dt_coat"), ".2f"),
             t(lang, "d_dtt"): _num(r.get("dt_tim"), ".2f"), t(lang, "d_flags"): len(r.get("flags") or []),
-        } for r in rows])
+        } for r in trows])
         show_df(full, lang, _ranking_fmt(lang), column_config=_colcfg(lang))
-    buf = io.StringIO(); _csv_frame(rows, lang).to_csv(buf, index=False)
+    buf = io.StringIO(); _csv_frame(trows, lang).to_csv(buf, index=False)
     st.markdown(f"**{t(lang, 'downloads')}**")
     c1,c2,c3,c4 = st.columns(4)
     pcfg = _pdf_cfg(cfg)

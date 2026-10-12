@@ -257,6 +257,44 @@ def test_measured_reference_label_only_for_cited_demo_rows():
     assert shown_tier(demo, False) == "Exploratory"
 
 
+def test_reference_table_rows_sorted_by_kappa_with_empty_scores():
+    from demo_systems import reference_table_rows
+    from pipeline import DEFAULTS, evaluate_candidates
+    rows = evaluate_candidates(run_demo(["Al", "Cu"]), dict(DEFAULTS))
+    shown = reference_table_rows(rows)
+    assert [(r["rank"], r["formula"], r["kappa_wm_k"]) for r in shown] == [
+        (1, "Al2Cu3", 25.9), (2, "Al4Cu9", 38.6), (3, "Al2Cu", 62.0), (4, "AlCu", 73.4)]
+    assert all(r["NOS"] is None and r["combined"] is None for r in shown)  # no stability / mechanics data
+    assert [r["formula"] for r in rows] == ["Al2Cu", "AlCu", "Al2Cu3", "Al4Cu9"]  # the rows themselves are untouched
+    assert all(r["NOS"] is not None for r in rows)
+    # A row that has Materials Project stability and elasticity keeps its numbers; a row without kappa goes last.
+    full = {"formula": "X", "kappa_wm_k": None, "e_above_hull": 0.0, "bulk_modulus": 1.0, "shear_modulus": 1.0, "NOS": 0.5, "combined": 0.4, "rank": 1}
+    last = reference_table_rows([full] + rows)[-1]
+    assert last["formula"] == "X" and last["NOS"] == 0.5 and last["combined"] == 0.4 and last["rank"] == 5
+
+
+def test_alcu_tables_sorted_by_kappa_and_default_tables_unchanged():
+    at = _app()
+    # Default demo: NiAl first, 0.807, 92 %; full table ordered by score with numbers in NOS / score.
+    assert any("NiAl queda 1.º en el 92%" in i.value for i in at.info)
+    full = at.dataframe[1].value
+    assert list(full["Puesto"]) == list(range(1, 8)) and full["Fase"].iloc[0] == "NiAl"
+    assert full["Puntaje"].iloc[0] == "0.8075"  # 4 decimals in the table; the detail shows 0.807
+    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
+    assert "sin dato" not in set(full["Puntaje"]) | set(full["NOS"])
+    assert [float(v) for v in full["Puntaje"]] == sorted((float(v) for v in full["Puntaje"]), reverse=True)
+    # Al-Cu: both tables sorted by kappa bulk (first = the info line's phase), NOS / score "sin dato".
+    next(s for s in at.selectbox if s.label == "Sistema químico").set_value("Al,Cu").run()
+    assert not at.exception, [e.message for e in at.exception]
+    short, full = at.dataframe[0].value, at.dataframe[1].value
+    order = ["Al2Cu3", "Al4Cu9", "Al2Cu", "AlCu"]
+    assert list(short["Fase"]) == order and list(full["Fase"]) == order
+    assert list(short["Puesto"]) == list(full["Puesto"]) == [1, 2, 3, 4]
+    assert list(full["κ bulk (W/m·K)"]) == ["25.9", "38.6", "62.0", "73.4"]
+    assert set(full["Puntaje"]) == set(full["NOS"]) == {"sin dato"}
+    assert any("La de menor κ es Al2Cu3 (25.9 W/m·K)" in i.value for i in at.info)
+
+
 if __name__ == "__main__":
     tests = [
         test_stability_monotone,
@@ -281,6 +319,8 @@ if __name__ == "__main__":
         test_other_systems_keep_evidence_score_and_order,
         test_alcu_shows_measured_reference_never_exploratory,
         test_measured_reference_label_only_for_cited_demo_rows,
+        test_reference_table_rows_sorted_by_kappa_with_empty_scores,
+        test_alcu_tables_sorted_by_kappa_and_default_tables_unchanged,
     ]
     for fn in tests:
         fn()

@@ -28,6 +28,18 @@ def shown_tier(row, reference):
     return row["tier"]
 
 
+def reference_table_rows(rows):
+    """Rows as the ranking tables and the CSV show them in a reference system: sorted by kappa bulk
+    (lowest first; rows without kappa last), position renumbered in that order, and NOS / score left
+    empty when they rest on stability or mechanics we do not have (no Materials Project data)."""
+    ordered = sorted(rows, key=lambda r: (r.get("kappa_wm_k") is None, r.get("kappa_wm_k") or 0.0))
+    out = []
+    for i, r in enumerate(ordered, 1):
+        missing = r.get("e_above_hull") is None or r.get("bulk_modulus") is None or r.get("shear_modulus") is None
+        out.append({**r, "rank": i, **({"NOS": None, "combined": None} if missing else {})})
+    return out
+
+
 def is_reference(key):
     """Reference systems: measured phases shown for their kappa, not coatings to deposit.
     The app shows no recommendation card, coupon sheet, study request or rank stability for them."""
