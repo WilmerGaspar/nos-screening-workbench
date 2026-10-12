@@ -10,6 +10,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from demo_systems import REFERENCE_TIER, is_reference, reference_table_rows, shown_tier
 from i18n import t, verdict_text
 from standards import STANDARDS
 from stack_sites import site_spec
@@ -40,6 +41,27 @@ def _styles():
         "cell": ParagraphStyle("cell", parent=base["BodyText"], fontName=_FONT, fontSize=7, leading=9),
     }
 
+def ranking_rows(lang, rows, reference=False):
+    """Body rows of the PDF ranking table, as text: rank, formula, score, manuf, dCTE, verdict, k, k needed.
+    Reference systems (Al-Cu): kappa order as on screen, score / manuf "-", and the measured label
+    in the verdict column for the cited rows."""
+    if reference:
+        rows = reference_table_rows(rows)
+    out = []
+    for r in rows[:20]:
+        k = r.get("kappa_wm_k"); dc = r.get("dcte_max"); kn = r.get("kappa_needed")
+        verdict = verdict_text(lang, r.get("verdict") or "coupon_cte_unknown")
+        if reference:
+            score = "-" if r.get("combined") is None else f"{r['combined']:.3f}"
+            manuf = "-"
+            if shown_tier(r, True) == REFERENCE_TIER:
+                verdict = ui_text.tier_label(lang, REFERENCE_TIER)
+        else:
+            score = f"{r.get('combined',0):.3f}"
+            manuf = f"{r.get('manuf_score',0):.3f}"
+        out.append([str(r.get("rank")), r.get("formula",""), score, manuf, "-" if dc is None else f"{dc:.1f}", verdict, "-" if k is None else f"{k:.1f}", "-" if kn is None else f"{kn:.1f}"])
+    return out
+
 def build_pdf(lang, cfg, rows, mode):
     _register_fonts()
     styles = _styles()
@@ -68,9 +90,8 @@ def build_pdf(lang, cfg, rows, mode):
     story.append(ct)
     story.append(Paragraph(t(lang,"report_rank"), styles["h2"]))
     data = [["Rank", t(lang,"col_formula"), "Score", "Manuf", t(lang,"col_dcte"), t(lang,"col_verdict"), "k bulk", t(lang,"col_kneed")]]
-    for r in rows[:20]:
-        k = r.get("kappa_wm_k"); dc = r.get("dcte_max"); kn = r.get("kappa_needed")
-        data.append([str(r.get("rank")), r.get("formula",""), f"{r.get('combined',0):.3f}", f"{r.get('manuf_score',0):.3f}", "-" if dc is None else f"{dc:.1f}", Paragraph(verdict_text(lang, r.get("verdict") or "coupon_cte_unknown"), styles["cell"]), "-" if k is None else f"{k:.1f}", "-" if kn is None else f"{kn:.1f}"])
+    for cells in ranking_rows(lang, rows, is_reference(",".join(cfg.get("elements") or []))):
+        data.append(cells[:5] + [Paragraph(cells[5], styles["cell"])] + cells[6:])
     rt = Table(data, colWidths=[11*mm, 18*mm, 14*mm, 14*mm, 16*mm, 72*mm, 15*mm, 18*mm])
     rt.setStyle(TableStyle([("FONTNAME",(0,0),(-1,0),_FONT_B),("FONTSIZE",(0,0),(-1,-1),7),("BACKGROUND",(0,0),(-1,0),colors.HexColor("#111827")),("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),0.3,colors.HexColor("#d1d5db")),("VALIGN",(0,0),(-1,-1),"TOP")]))
     story.append(rt)

@@ -480,3 +480,11 @@ _V06 = {
 }
 for _lang, _pack in _V06.items():
     T.setdefault(_lang, {}).update(_pack)
+
+# v0.7: detail of a reference system (Al-Cu): the notes are not about a verdict.
+_V07 = {
+    "es": {"notes_h_ref": "Notas de esta fase"},
+    "en": {"notes_h_ref": "Notes on this phase"},
+}
+for _lang, _pack in _V07.items():
+    T.setdefault(_lang, {}).update(_pack)

@@ -40,6 +40,22 @@ def reference_table_rows(rows):
     return out
 
 
+# Notes left out of the detail of a reference system: they are about depositing the phase or about its
+# CTE / interface score, which do not apply to a phase that grows at a joint. Pugh notes stay.
+_NO_CTE_INTERFACE_NOTE = "No coating CTE in the catalog: interface score set to neutral 0.5."
+
+
+def reference_detail_notes(row):
+    """Engine notes (English, before translation) shown in the detail of a reference system: interface,
+    thermal-relevance and flag notes as usual, minus the deposition notes (manufacturability, except Pugh),
+    the Al/Ti oxide flag and the two "no CTE" notes."""
+    from interface import FLAG_TEXT
+    hidden = {FLAG_TEXT["al_ti_oxide"], FLAG_TEXT["cte_missing"], _NO_CTE_INTERFACE_NOTE}
+    pugh = [n for n in row.get("manuf_notes") or [] if "Pugh" in n]
+    lines = (row.get("interface_notes") or []) + (row.get("relevance_notes") or []) + (row.get("flag_notes") or []) + pugh
+    return [n for n in lines if n not in hidden]
+
+
 def is_reference(key):
     """Reference systems: measured phases shown for their kappa, not coatings to deposit.
     The app shows no recommendation card, coupon sheet, study request or rank stability for them."""

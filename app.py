@@ -11,7 +11,7 @@ from ranking import RELIABILITY_WEIGHTS, normalize_weights, rank_stability
 from die_stack import DIES
 from thermal import APPLICATIONS, SUBSTRATES
 from interface import DEFAULT_SHARE_MAX, DEFAULT_TIM_KAPPA, DEFAULT_TIM_UM
-from demo_systems import DEMO_SYSTEMS, REFERENCE_TIER, is_reference, reference_table_rows, shown_tier
+from demo_systems import DEMO_SYSTEMS, REFERENCE_TIER, is_reference, reference_detail_notes, reference_table_rows, shown_tier
 from standards import STANDARDS
 from i18n import LANGS, t, verdict_text
 from report_pdf import build_pdf, build_zip_all_langs
@@ -394,6 +394,22 @@ def eval_panel(rows, cfg, lang, key, short):
         email_options(lang, t(lang, "eval_btn"), subject, feedback.eval_body(lines), primary=True, short=short, key=key)
         st.caption(t(lang, "eval_caption_email"))
 
+def reference_detail(rows, lang):
+    """Detail of a reference system: phases in kappa order (as the tables), only the kappa metric, no verdict,
+    and the notes that apply to a phase that grows at a joint (not deposited)."""
+    rows = reference_table_rows(rows)
+    na = t(lang, "no_data")
+    labels = [f"{r['rank']:02d} · {r['formula']} (κ {na if r.get('kappa_wm_k') is None else format(r['kappa_wm_k'], '.1f')})" for r in rows[:40]]
+    if not labels: return
+    choice = st.selectbox(t(lang,"fiche"), labels); row = rows[labels.index(choice)]
+    c1 = st.columns(4)[0]
+    c1.metric("κ bulk / " + t(lang,"d_kneed").split(" (")[0], ("—" if row.get("kappa_wm_k") is None else f"{row['kappa_wm_k']:.1f}") + f" / {row['kappa_needed']:.1f}", help=t(lang, "h_kappa"))
+    with st.expander(t(lang, "notes_h_ref"), expanded=True):
+        for line in reference_detail_notes(row):
+            st.markdown(f"- {ui.note(lang, line)}")
+        if row.get("thermal_citation"):
+            st.caption(row["thermal_citation"])
+
 def detail(rows, lang):
     labels = [f"{r['rank']:02d} · {r['formula']} ({r['combined']:.3f})" for r in rows[:40]]
     if not labels: return
@@ -581,7 +597,11 @@ def screening_view(cfg, lang):
         recommendation_card(rows, cfg, lang, mode)
     st.subheader(t(lang, "summary_h")); table(rows, cfg["cooling"], lang, cfg, mode, reference=reference)
     st.subheader(t(lang, "chart_h")); scatter(rows, cfg["cooling"], lang, reference=reference)
-    st.subheader(t(lang, "detail_h")); detail(rows, lang)
+    st.subheader(t(lang, "detail_h"))
+    if reference:
+        reference_detail(rows, lang)
+    else:
+        detail(rows, lang)
     context_panel(cfg, lang)
     return rows
 

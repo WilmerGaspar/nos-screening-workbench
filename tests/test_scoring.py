@@ -295,6 +295,129 @@ def test_alcu_tables_sorted_by_kappa_and_default_tables_unchanged():
     assert any("La de menor κ es Al2Cu3 (25.9 W/m·K)" in i.value for i in at.info)
 
 
+def _old_pdf_rows(lang, rows):
+    """PDF ranking rows exactly as build_pdf made them before reference systems (main 3051ad5), verdict as text."""
+    from i18n import verdict_text
+    out = []
+    for r in rows[:20]:
+        k = r.get("kappa_wm_k"); dc = r.get("dcte_max"); kn = r.get("kappa_needed")
+        out.append([str(r.get("rank")), r.get("formula",""), f"{r.get('combined',0):.3f}", f"{r.get('manuf_score',0):.3f}", "-" if dc is None else f"{dc:.1f}", verdict_text(lang, r.get("verdict") or "coupon_cte_unknown"), "-" if k is None else f"{k:.1f}", "-" if kn is None else f"{kn:.1f}"])
+    return out
+
+
+def _alcu_rows(**cfg):
+    from pipeline import DEFAULTS, evaluate_candidates
+    return evaluate_candidates(run_demo(["Al", "Cu"]), {**DEFAULTS, **cfg})
+
+
+def test_reference_detail_notes_hide_deposition_and_cte_notes():
+    from demo_systems import reference_detail_notes
+    from interface import FLAG_TEXT
+    hidden = [FLAG_TEXT["al_ti_oxide"], FLAG_TEXT["cte_missing"], "No coating CTE in the catalog: interface score set to neutral 0.5."]
+    for process in ("pvd", "thermal_spray", "electroplating"):
+        for r in _alcu_rows(process=process):
+            everything = (r["interface_notes"] + r["relevance_notes"] + r["flag_notes"] + r["manuf_notes"])
+            assert all(h in everything for h in hidden), (process, r["formula"])  # the hidden notes do exist
+            shown = reference_detail_notes(r)
+            assert not set(hidden) & set(shown)
+            assert [n for n in shown if n in r["manuf_notes"]] == [n for n in r["manuf_notes"] if "Pugh" in n] != []
+            kept = r["relevance_notes"] + [n for n in r["flag_notes"] if n not in hidden]
+            assert all(n in shown for n in kept)
+            assert any(n.startswith("TIM term") for n in shown) and any(n.startswith("Coating at bulk kappa") for n in shown)
+            assert any(n.startswith("Al and Cu meet") for n in shown) and any("~36 um" in n for n in shown)
+    assert "PVD can deposit most intermetallics; residual stress is the risk." in _alcu_rows(process="pvd")[0]["manuf_notes"]
+
+
+def test_alcu_detail_shows_no_hidden_notes():
+    import ui_text as ui
+    from demo_systems import reference_detail_notes
+    from interface import FLAG_TEXT
+    rows = {r["formula"]: r for r in _alcu_rows()}
+    for lang, notes_h, code in (("es", "Notas de esta fase", "Código del dictamen"), ("en", "Notes on this phase", "Verdict code")):
+        at = _app("Al,Cu", lang)
+        fase = next(s for s in at.selectbox if s.label in ("Fase", "Phase"))
+        assert fase.options == ["01 · Al2Cu3 (κ 25.9)", "02 · Al4Cu9 (κ 38.6)", "03 · Al2Cu (κ 62.0)", "04 · AlCu (κ 73.4)"], lang
+        for option in fase.options:
+            next(s for s in at.selectbox if s.label in ("Fase", "Phase")).set_value(option).run()
+            assert not at.exception, [e.message for e in at.exception]
+            row = rows[option.split(" · ")[1].split(" (")[0]]
+            hidden = [FLAG_TEXT["al_ti_oxide"], FLAG_TEXT["cte_missing"], "No coating CTE in the catalog: interface score set to neutral 0.5."]
+            hidden += [n for n in row["manuf_notes"] if "Pugh" not in n]
+            exp = [e for e in at.expander if e.label == notes_h]
+            assert len(exp) == 1, (lang, option)
+            shown = [m.value for m in exp[0].markdown]
+            assert shown == [f"- {ui.note(lang, n)}" for n in reference_detail_notes(row)], (lang, option)
+            assert not any(ui.note(lang, h) in v for h in hidden for v in shown), (lang, option)
+            assert exp[0].caption[0].value == row["thermal_citation"]
+            # Only the kappa metric in the detail; no verdict badge, verdict text or verdict code.
+            detail_metrics = [m.label for m in at.metric][4:]
+            assert detail_metrics == ["κ bulk / " + ("κ necesaria" if lang == "es" else "κ needed")], (lang, detail_metrics)
+            assert not any("badge[" in m.value for m in at.markdown)
+            assert not any(c.value.startswith(code) for c in at.caption)
+
+
+def test_reference_pdf_rows_and_other_systems_pdf_unchanged():
+    from demo_systems import DEMO_SYSTEMS, is_reference
+    from pipeline import DEFAULTS, evaluate_candidates
+    from report_pdf import build_pdf, ranking_rows
+    label = {"es": "Medido (referencia)", "en": "Measured (reference)", "fr": "Measured (reference)", "de": "Measured (reference)"}
+    for lang in ("es", "en", "fr", "de"):
+        got = ranking_rows(lang, _alcu_rows(), reference=True)
+        assert [c[:4] for c in got] == [["1", "Al2Cu3", "-", "-"], ["2", "Al4Cu9", "-", "-"], ["3", "Al2Cu", "-", "-"], ["4", "AlCu", "-", "-"]]
+        assert [c[5] for c in got] == [label[lang]] * 4 and [c[6] for c in got] == ["25.9", "38.6", "62.0", "73.4"]
+    # Every other system, several setups, 4 languages: the PDF rows are exactly the old ones.
+    n = 0
+    for s in DEMO_SYSTEMS:
+        if is_reference(s["key"]):
+            continue
+        for site in ("cold_plate", "die_attach"):
+            for process in ("pvd", "thermal_spray"):
+                cfg = {**DEFAULTS, "site": site, "process": process}
+                rows = evaluate_candidates(run_demo([e.strip() for e in s["key"].split(",")]), cfg)
+                for lang in ("es", "en", "fr", "de"):
+                    assert ranking_rows(lang, rows, reference=False) == _old_pdf_rows(lang, rows), (s["key"], site, process, lang)
+                    n += 1
+    assert n == 11 * 2 * 2 * 4
+    # build_pdf (and so the 4-language ZIP) asks for the reference rows only for Al,Cu.
+    import report_pdf
+    calls = []
+    original = report_pdf.ranking_rows
+    report_pdf.ranking_rows = lambda lang, rows, reference=False: calls.append(reference) or original(lang, rows, reference)
+    try:
+        for elements in (["Al", "Cu"], ["cited7"], ["Ni", "Al"]):
+            cfg = {**DEFAULTS, "elements": elements, "process_label": "PVD (sputter / arc)"}
+            assert build_pdf("es", cfg, evaluate_candidates(run_demo(elements), cfg), "demo")[:5] == b"%PDF-"
+        report_pdf.build_zip_all_langs({**DEFAULTS, "elements": ["Al", "Cu"]}, _alcu_rows(), "demo")
+    finally:
+        report_pdf.ranking_rows = original
+    assert calls == [True, False, False, True, True, True, True]
+
+
+def test_other_systems_detail_unchanged():
+    from demo_systems import DEMO_SYSTEMS, is_reference
+    import ui_text as ui
+    from interface import FLAG_TEXT
+    at = _app()
+    assert any("NiAl queda 1.º en el 92%" in i.value for i in at.info)
+    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
+    # The default detail (NiAl) still lists the notes a reference system hides.
+    notes = [m.value for m in next(e for e in at.expander if e.label == "Por qué este dictamen").markdown]
+    for n in ("PVD can deposit most intermetallics; residual stress is the risk.", FLAG_TEXT["al_ti_oxide"]):
+        assert f"- {ui.note('es', n)}" in notes, n
+    for key in [s["key"] for s in DEMO_SYSTEMS if not is_reference(s["key"])]:
+        next(s for s in at.selectbox if s.label == "Sistema químico").set_value(key).run()
+        assert not at.exception, (key, [e.message for e in at.exception])
+        fase = [s for s in at.selectbox if s.label == "Fase"]
+        if not fase:  # Co,Ti has no demo phase
+            assert not run_demo([e.strip() for e in key.split(",")]), key
+            continue
+        assert all(o.endswith(")") and "(κ" not in o and o.split("(")[-1][:2] == "0." for o in fase[0].options), key
+        assert [m.label for m in at.metric][4:] == ["Interfaz", "Fabricación", "κ bulk / κ necesaria", "Puntaje"], key
+        assert [e.label for e in at.expander if e.label in ("Por qué este dictamen", "Notas de esta fase")] == ["Por qué este dictamen"], key
+        assert any(c.value.startswith("Código del dictamen: ") for c in at.caption), key
+        assert any("badge[" in m.value for m in at.markdown), key
+
+
 if __name__ == "__main__":
     tests = [
         test_stability_monotone,
@@ -321,6 +444,10 @@ if __name__ == "__main__":
         test_measured_reference_label_only_for_cited_demo_rows,
         test_reference_table_rows_sorted_by_kappa_with_empty_scores,
         test_alcu_tables_sorted_by_kappa_and_default_tables_unchanged,
+        test_reference_detail_notes_hide_deposition_and_cte_notes,
+        test_alcu_detail_shows_no_hidden_notes,
+        test_reference_pdf_rows_and_other_systems_pdf_unchanged,
+        test_other_systems_detail_unchanged,
     ]
     for fn in tests:
         fn()
