@@ -17,12 +17,13 @@ from thermal import APPLICATIONS
 
 
 def _old_request_body(cfg, phase):
-    """The study-request body exactly as request_panel built it before feedback.py (main 450e1e6)."""
+    """The study-request body exactly as request_panel built it before feedback.py (main 450e1e6),
+    with one line changed on purpose in plan-wording: "a study / coupon" -> "a study" (no lab of our own)."""
     phase = phase or {}
     site_en = site_spec(cfg.get("site"), "en")["label"]
     return "\n".join([
         "Hi Wilmer,", "",
-        "I ran the NOS Screening Workbench and would like a study / coupon for my case.", "",
+        "I ran the NOS Screening Workbench and would like a study for my case.", "",
         f"Application: {APPLICATIONS[cfg['application']]['label']}",
         f"Layer site: {site_en}",
         f"Process: {cfg.get('process_label')} - {cfg.get('thickness_um')} um on {cfg.get('substrate')}",
@@ -37,7 +38,7 @@ def _new_request_body(cfg, phase):
     """The same body built the way request_panel builds it now (setup_lines in the middle)."""
     return "\n".join([
         "Hi Wilmer,", "",
-        "I ran the NOS Screening Workbench and would like a study / coupon for my case.", "",
+        "I ran the NOS Screening Workbench and would like a study for my case.", "",
         *feedback.setup_lines(cfg, phase), "",
         "My real stack / what fails today:", "",
         "Company / role (optional):", "",

@@ -197,7 +197,7 @@ def test_default_demo_unchanged_by_reference_systems():
     assert not any(v.startswith("Sistema de referencia") for v in infos)
     coupon = [d.proto.id for d in at.get("download_button") if "dl_coupon" in d.proto.id]
     assert len(coupon) == 2  # coupon sheet in the card and in the downloads row
-    assert [p.proto.popover.label for p in at.get("popover")] == ["Solicitar estudio o probeta", "Evalúa esta herramienta (2 min)"]
+    assert [p.proto.popover.label for p in at.get("popover")] == ["Solicitar estudio", "Evalúa esta herramienta (2 min)"]
 
 
 def test_reference_system_alcu_shows_info_instead_of_card():

@@ -363,7 +363,7 @@ def request_panel(rows, cfg, lang):
     subject = f"NOS study request - {phase.get('formula', '')} - {site_en}"
     body = "\n".join([
         "Hi Wilmer,", "",
-        "I ran the NOS Screening Workbench and would like a study / coupon for my case.", "",
+        "I ran the NOS Screening Workbench and would like a study for my case.", "",
         *feedback.setup_lines(cfg, phase), "",
         "My real stack / what fails today:", "",
         "Company / role (optional):", "",
