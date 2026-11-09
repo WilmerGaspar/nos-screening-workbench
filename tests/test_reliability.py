@@ -52,14 +52,16 @@ def test_feal_matters_on_heat_path_not_on_bond_coat():
     feal_cold = next(r for r in cold if r["formula"] == "FeAl")
     feal_bond = next(r for r in bond if r["formula"] == "FeAl")
     assert feal_cold["verdict"] == "kappa_significant"
-    assert feal_bond["verdict"] == "proceed_to_coupon"
+    # Off the heat path kappa no longer decides; FeAl has no cited CTE, so it needs a coupon.
+    assert feal_bond["verdict"] == "coupon_cte_unknown"
 
 
 def test_site_sets_the_cte_comparison():
     cold = evaluate_interface("NiAl", {"Ni": 1, "Al": 1}, "cold_plate", die="Si", substrate="Cu")
     die = evaluate_interface("NiAl", {"Ni": 1, "Al": 1}, "die_attach", die="Si", substrate="Cu")
-    assert abs(cold.dcte_max - 1.4) < 0.01
-    assert abs(die.dcte_max - 12.5) < 0.01
+    # NiAl 12.7 ppm/K at 300 K (Noebe et al., NASA TM-105598) vs Cu 16.5 and Si 2.6.
+    assert abs(cold.dcte_max - 3.8) < 0.01
+    assert abs(die.dcte_max - 10.1) < 0.01
     assert die.worst_neighbor.startswith("Si")
 
 
@@ -135,8 +137,17 @@ def test_alcu_flag_only_where_al_meets_cu():
 
 def test_demo_story_unchanged_by_alcu_data():
     _, rows = _run("cold_plate")
-    assert [r["formula"] for r in rows][:3] == ["NiAl", "CoAl", "Ni3Al"]
-    assert rows[0]["combined"] == 0.8075
+    assert [r["formula"] for r in rows][:3] == ["NiAl", "FeTi", "CoAl"]
+    assert rows[0]["combined"] == 0.7475
+
+
+def test_uncited_cte_is_shown_but_not_scored():
+    coal = evaluate_interface("CoAl", {"Co": 1, "Al": 1}, "cold_plate", substrate="Cu")
+    assert "cte_uncited" in coal.flags
+    assert coal.coat_cte is None and coal.dcte_max is None and coal.score == 0.5
+    assert any("no cited source" in n for n in coal.notes)
+    nial = evaluate_interface("NiAl", {"Ni": 1, "Al": 1}, "cold_plate", substrate="Cu")
+    assert "cte_uncited" not in nial.flags and nial.cte_source and "NASA TM-105598" in nial.cte_source
 
 
 def test_imc_thickness_threshold():

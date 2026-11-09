@@ -89,6 +89,7 @@ def evaluate_row(cand: Dict, cfg: Dict) -> Dict:
         # interface (v0.3)
         "interface_score": iface.score,
         "coat_cte": iface.coat_cte,
+        "coat_cte_source": iface.cte_source,
         "dcte_max": iface.dcte_max,
         "worst_neighbor": iface.worst_neighbor,
         "neighbors": iface.neighbors,

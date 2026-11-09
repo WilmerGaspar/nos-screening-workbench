@@ -6,8 +6,14 @@ from typing import Dict, List, Optional
 from formula_match import composition_key
 
 KAPPA_RT: Dict[str, Dict] = {
-    "NiAl": {"kappa": 92.2, "T_K": 300, "method": "laser-flash", "cte_ppm_k": 15.1, "form": "bulk",
+    # NiAl CTE: polycrystalline fit of Noebe, Bowman & Nathal (NASA TM-105598, NTRS 19930002447;
+    # Int. Mater. Rev. 38 (1993) 193-232), valid ~300-1300 K, T in K:
+    #   alpha(T) = 1.16026e-5 + 4.08531e-9*T - 1.58368e-12*T^2 + 4.18374e-16*T^3
+    # -> 12.7 ppm/K at 300 K (same reference temperature as the substrate rows). The former
+    # 15.1 matched this fit near 1300 K, not room temperature.
+    "NiAl": {"kappa": 92.2, "T_K": 300, "method": "laser-flash", "cte_ppm_k": 12.7, "form": "bulk",
              "citation": "Terada 2002, Mater. Trans. 43:3167, DOI 10.2320/matertrans.43.3167",
+             "cte_source": "Noebe, Bowman & Nathal, NASA TM-105598 (NTRS 19930002447), alpha(T) fit at 300 K",
              "note": "B2 NiAl stoich."},
     "CoAl": {"kappa": 37.0, "T_K": 300, "method": "laser-flash", "cte_ppm_k": 15.0, "form": "bulk",
              "citation": "Terada 1995, Intermetallics 3:347, DOI 10.1016/0966-9795(95)94253-B",

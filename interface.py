@@ -51,7 +51,8 @@ FLAG_TEXT = {
                      "(practitioner input; may be negligible near 150 C - measure, do not assume).",
     "al_ti_oxide": "Al/Ti in the coating: look for surface oxide at the interface in the "
                    "cross-section (practitioner input).",
-    "cte_uncited": "Coating CTE has no DOI in this repo: verify the value before quoting it.",
+    "cte_uncited": "Coating CTE has no cited source in this repo: it is not used in the score or the "
+                   "verdict. Measure it on the coupon.",
     "cte_missing": "No CTE value for this phase: the interface verdict needs a coupon.",
     "die_cte_mismatch": "Coating touches a semiconductor die: metallic coatings sit far from the die CTE.",
     "al_cu_imc": "Al and Cu meet at this interface: Al-Cu intermetallics can grow there. They are harder "
@@ -90,6 +91,7 @@ class InterfaceResult:
     score: float
     flags: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
+    cte_source: Optional[str] = None
 
 
 def thermal_relevance(
@@ -217,12 +219,18 @@ def evaluate_interface(formula: str, composition: Dict[str, float], site_key: st
         notes.append("No coating CTE in the catalog: interface score set to neutral 0.5.")
         return InterfaceResult(neighbors, None, None, None, UNKNOWN_INTERFACE_SCORE, flags, notes)
     if not rec.get("cte_source"):
+        # Only cited CTE values may decide the ranking. An uncited value is shown, not used.
         flags.append("cte_uncited")
+        notes.append(f"Catalog CTE {float(coat_cte):.1f} ppm/K has no cited source: not used. "
+                     f"Interface score set to neutral {UNKNOWN_INTERFACE_SCORE}.")
+        return InterfaceResult(neighbors, None, None, None, UNKNOWN_INTERFACE_SCORE, flags, notes)
     deltas = [(label, abs(float(coat_cte) - cte)) for label, cte in neighbors]
     worst_label, worst = max(deltas, key=lambda x: x[1])
     for label, d in deltas:
         notes.append(f"CTE coat {coat_cte:.1f} vs {label} -> dCTE {d:.1f} ppm/K.")
-    return InterfaceResult(neighbors, float(coat_cte), round(worst, 2), worst_label, round(dcte_score(worst), 4), flags, notes)
+    notes.append(f"Coating CTE source: {rec['cte_source']}.")
+    return InterfaceResult(neighbors, float(coat_cte), round(worst, 2), worst_label, round(dcte_score(worst), 4),
+                           flags, notes, rec["cte_source"])
 
 
 def decide(veto: bool, heat_path: bool, relevance_verdict: str, iface: InterfaceResult) -> str:

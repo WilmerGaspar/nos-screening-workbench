@@ -191,9 +191,9 @@ def _page_text(at):
 def test_default_demo_unchanged_by_reference_systems():
     at = _app()
     assert [m.value for m in at.markdown if m.value.startswith("## ")] == ["## NiAl"]  # recommendation card
-    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
+    assert any(m.label == "Puntaje" and m.value == "0.748" for m in at.metric)
     infos = [i.value for i in at.info]
-    assert any("NiAl queda 1.º en el 92%" in v for v in infos)
+    assert any("NiAl queda 1.º en el 100%" in v for v in infos)
     assert not any(v.startswith("Sistema de referencia") for v in infos)
     coupon = [d.proto.id for d in at.get("download_button") if "dl_coupon" in d.proto.id]
     assert len(coupon) == 2  # coupon sheet in the card and in the downloads row
@@ -220,11 +220,11 @@ def test_reference_system_alcu_shows_info_instead_of_card():
 def test_other_systems_keep_evidence_score_and_order():
     from demo_systems import DEMO_SYSTEMS, is_reference
     at = _app()
-    # Default demo: NiAl first, 0.807, 92 %, evidence label and map as before.
+    # Default demo: NiAl first, 0.748, 100 % (only cited CTE values score), evidence label and map as before.
     fase = next(s for s in at.selectbox if s.label == "Fase")
-    assert fase.options[0] == "01 · NiAl (0.807)"
-    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
-    assert any("NiAl queda 1.º en el 92%" in i.value for i in at.info)
+    assert fase.options[0] == "01 · NiAl (0.748)"
+    assert any(m.label == "Puntaje" and m.value == "0.748" for m in at.metric)
+    assert any("NiAl queda 1.º en el 100%" in i.value for i in at.info)
     assert _map(at) == ([("Verificado experimentalmente", 7)], None)
     # Every other system: no reference label, no forced legend.
     for key in [s["key"] for s in DEMO_SYSTEMS if not is_reference(s["key"]) and s["key"] != "cited7"]:
@@ -275,12 +275,12 @@ def test_reference_table_rows_sorted_by_kappa_with_empty_scores():
 
 def test_alcu_tables_sorted_by_kappa_and_default_tables_unchanged():
     at = _app()
-    # Default demo: NiAl first, 0.807, 92 %; full table ordered by score with numbers in NOS / score.
-    assert any("NiAl queda 1.º en el 92%" in i.value for i in at.info)
+    # Default demo: NiAl first, 0.748, 100 %; full table ordered by score with numbers in NOS / score.
+    assert any("NiAl queda 1.º en el 100%" in i.value for i in at.info)
     full = at.dataframe[1].value
     assert list(full["Puesto"]) == list(range(1, 8)) and full["Fase"].iloc[0] == "NiAl"
-    assert full["Puntaje"].iloc[0] == "0.8075"  # 4 decimals in the table; the detail shows 0.807
-    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
+    assert full["Puntaje"].iloc[0] == "0.7475"  # 4 decimals in the table; the detail shows 0.748
+    assert any(m.label == "Puntaje" and m.value == "0.748" for m in at.metric)
     assert "sin dato" not in set(full["Puntaje"]) | set(full["NOS"])
     assert [float(v) for v in full["Puntaje"]] == sorted((float(v) for v in full["Puntaje"]), reverse=True)
     # Al-Cu: both tables sorted by kappa bulk (first = the info line's phase), NOS / score "sin dato".
@@ -404,8 +404,8 @@ def test_other_systems_detail_unchanged():
     import ui_text as ui
     from interface import FLAG_TEXT
     at = _app()
-    assert any("NiAl queda 1.º en el 92%" in i.value for i in at.info)
-    assert any(m.label == "Puntaje" and m.value == "0.807" for m in at.metric)
+    assert any("NiAl queda 1.º en el 100%" in i.value for i in at.info)
+    assert any(m.label == "Puntaje" and m.value == "0.748" for m in at.metric)
     # The default detail (NiAl) still lists the notes a reference system hides.
     notes = [m.value for m in next(e for e in at.expander if e.label == "Por qué este dictamen").markdown]
     for n in ("PVD can deposit most intermetallics; residual stress is the risk.", FLAG_TEXT["al_ti_oxide"]):

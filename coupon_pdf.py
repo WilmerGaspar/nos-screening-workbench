@@ -127,8 +127,9 @@ def build_coupon_pdf(cfg, rows, phase=None, contact=None):
     neighbors = ", ".join(f"{n} ({c:.1f} ppm/K)" for n, c in (row.get("neighbors") or []))
     cte = row.get("coat_cte")
     dcte = row.get("dcte_max")
-    cte_txt = "no value in catalog - measure on the coupon" if cte is None else (
-        f"{cte:.1f} ppm/K (no DOI in repo - verify); max dCTE {dcte:.1f} ppm/K vs {row.get('worst_neighbor')}")
+    cte_txt = "no cited value in catalog - measure on the coupon" if cte is None or dcte is None else (
+        f"{cte:.1f} ppm/K ({row.get('coat_cte_source') or 'source not recorded'}); "
+        f"max dCTE {dcte:.1f} ppm/K vs {row.get('worst_neighbor')}")
     kappa = row.get("kappa_wm_k")
     kappa_txt = "no citable value" if kappa is None else f"{kappa:.1f} W/mK - {row.get('thermal_citation') or ''}"
     dt_txt = "-" if row.get("dt_coat") is None else (
