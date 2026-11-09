@@ -57,8 +57,11 @@ TIM defaults (4 W/m.K, 50 um) are editable assumptions, not measurements.
 
 The layer site lists the materials the coating touches (die, DBC Cu, baseplate, Al wire).
 dCTE_max = max |CTE_coat - CTE_neighbor|; interface score = clip(1 - dCTE_max / 16, 0, 1).
-Unknown CTE scores 0.5 and gets the verdict coupon_cte_unknown. CTE values carried in
-thermal.py have no DOI in this repo and are flagged `cte_uncited`.
+Unknown CTE scores 0.5 and gets the verdict coupon_cte_unknown. Only CTE values with a
+cited source (`cte_source` in thermal.py) enter the score and the verdict. A CTE value
+without a source is flagged `cte_uncited`, shown as information and treated as unknown.
+NiAl uses the polycrystalline fit of Noebe, Bowman & Nathal (NASA TM-105598) at 300 K,
+12.7 ppm/K, the same reference temperature as the substrate rows.
 
 Chemistry watch items change the coupon sheet, not the score:
 - ni_fe_into_cu, al_ti_oxide: practitioner input (unpublished, 2026-10).
